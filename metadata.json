@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "id": "br.gamejam",
+  "version": "1.0.0",
+
+  "runtime": {
+    "entrypoint": "main.py",
+    "view_factory": null,
+    "menu_actions": {},
+    "min_platform_version": null,
+    "python": null,
+    "dependencies": ["opencv-python", "mediapipe", "pygam"],
+    "required_peripherals": ["webcam"],
+    "permissions": ["camera"]
+  },
+
+  "store": {
+    "type": "game",
+    "is_free": true,
+    "developers": [],
+    "platforms": {
+      "windows": true,
+      "linux": false,
+      "mac": false
+    },
+    "tech": {
+      "engine": "pygame",
+      "language": "python"
+    },
+    "assets": {
+      "icon": null
+    },
+    "localization": {
+      "default": "pt_BR",
+      "supported": ["pt_BR"],
+      "pt_BR": {
+        "name": "Gamejam",
+        "short_description": "teste",
+        "about_the_game": "teste"
+      }
+    }
+  }
+}
