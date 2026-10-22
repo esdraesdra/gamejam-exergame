@@ -9,8 +9,8 @@
     "menu_actions": {},
     "min_platform_version": null,
     "python": null,
-    "dependencies": ["opencv-python", "mediapipe", "pygam"],
-    "required_peripherals": ["webcam"],
+    "dependencies": ["opencv-python", "mediapipe", "pygame"],
+    "required_peripherals": ["webcam", "projector"],
     "permissions": ["camera"]
   },
 
@@ -35,8 +35,9 @@
       "supported": ["pt_BR"],
       "pt_BR": {
         "name": "Gamejam",
-        "short_description": "teste",
-        "about_the_game": "teste"
+        "short_description": "Um jogo de reciclagem jogado com os pés.",
+        "about_the_game": "Projetado no chão: pise sobre o quadrado que cai, segure por um instante e arraste-o com o pé até a lixeira da mesma cor.",
+        "requirements_notes": "Requer uma webcam e um projetor apontados para o chão, com a calibração do T-TEA feita."
       }
     }
   }
