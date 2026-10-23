@@ -17,7 +17,10 @@
   "store": {
     "type": "game",
     "is_free": true,
-    "developers": [],
+    "developers": [
+      { "name": "Gustavo", "email": null, "website": null },
+      { "name": "Esdras", "email": null, "website": null }
+    ],
     "platforms": {
       "windows": true,
       "linux": false,
@@ -34,9 +37,10 @@
       "default": "pt_BR",
       "supported": ["pt_BR"],
       "pt_BR": {
-        "name": "Gamejam",
+        "name": "Catalixo",
         "short_description": "Um jogo de reciclagem jogado com os pés.",
-        "about_the_game": "Projetado no chão: pise sobre o quadrado que cai, segure por um instante e arraste-o com o pé até a lixeira da mesma cor.",
+        "about_the_game": "Use os pés para levar cada quadrado que cai até a lixeira da mesma cor.",
+        "detailed_description": "Catalixo é um exergame de reciclagem jogado no chão. Com a ajuda de uma webcam, o jogador controla os quadrados usando os pés: pise sobre um quadrado que cai, segure-o por um instante e arraste-o até a lixeira correspondente à sua cor. Acertar a lixeira soma pontos; escolher uma lixeira de outra cor reduz a pontuação.",
         "requirements_notes": "Requer uma webcam e um projetor apontados para o chão, com a calibração do T-TEA feita."
       }
     }
