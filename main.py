@@ -10,7 +10,7 @@ config = carregar_config()
 
 # config basica pygame janela
 pygame.init()
-tela = pygame.display.set_mode((800, 600), pygame.FULLSCREEN, display=config["screen_position"])
+tela = pygame.display.set_mode((800, 600), display=config["screen_position"])
 pygame.display.set_caption("Game Jam")
 relogio = pygame.time.Clock()
 L, A = tela.get_size()
