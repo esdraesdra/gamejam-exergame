@@ -7,19 +7,17 @@ from config import carregar_config
 from pes.controle import ControlePes, mover, quadrado_em
 from pes.rastreador import RastreadorPes
 
+# Constantes da interface
 JANELA_LARGURA = 800
 JANELA_ALTURA = 600
 TAXA_QUADROS = 60
 TITULO_JANELA = "Catalixo"
 FONTE_PONTUACAO_TAMANHO = 48
 FONTE_AVISO_TAMANHO = 28
-
-ALVO_TOPO = 405
-ALVO_LARGURA = 175
-ALVO_ALTURA = 175
-ALVO_ESPACAMENTO = 20
 MARGEM_UI = 20
+RAIO_PE = 15
 
+# Cores da interface e dos alvos
 COR_VERDE = (0, 200, 0)
 COR_AZUL = (0, 100, 255)
 COR_VERMELHA = (220, 0, 0)
@@ -29,6 +27,11 @@ COR_FUNDO = (30, 30, 30)
 COR_BRANCA = (255, 255, 255)
 COR_TEXTO = (200, 200, 200)
 
+# Constantes da área e das regras do jogo
+ALVO_TOPO = 405
+ALVO_LARGURA = 175
+ALVO_ALTURA = 175
+ALVO_ESPACAMENTO = 20
 COLUNAS = (85, 280, 475, 670)
 TAMANHO_QUADRADO = 44
 MARGEM_PEGAR = 25
@@ -36,8 +39,7 @@ VELOCIDADE_QUADRADO = 1
 FREQUENCIA_SPAWN = 0.4
 PONTOS_ACERTO = 100
 PENALIDADE_ERRO = 50
-RAIO_PE = 15
-
+TEMPO_JOGO = 90
 
 def criar_alvos():
     """Cria os retângulos-alvo na parte inferior da tela."""
@@ -77,7 +79,14 @@ def lixeira_tocada(quadrado, alvos):
     return alvo_tocado
 
 
-def processar_eventos(quadrados, controle, arrastando_mouse, largura, altura):
+def processar_eventos(
+    quadrados,
+    controle,
+    arrastando_mouse,
+    largura,
+    altura,
+    pausado=False,
+):
     """Processa eventos de saída e interação com o mouse."""
     rodando = True
 
@@ -89,6 +98,12 @@ def processar_eventos(quadrados, controle, arrastando_mouse, largura, altura):
             pygame.K_q,
         ):
             rodando = False
+        elif evento.type == pygame.KEYDOWN and evento.key in (
+                    pygame.K_r,
+        ):
+            pass
+        elif pausado:
+            continue
         elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             arrastando_mouse = quadrado_em(
                 evento.pos,
@@ -177,6 +192,43 @@ def atualizar_quadrados(
 
     return restantes, pontuacao, arrastando_mouse
 
+def desenhar_menu_fim(tela, pontuacao, fonte_pontuacao, fonte_aviso, largura, altura):
+    """Desenha a tela de fim de jogo com a pontuação final."""
+    tela.fill(COR_FUNDO)
+
+    texto_fim = fonte_aviso.render(
+        "Fim de jogo!", True, COR_BRANCA
+    )
+    texto_pontuacao = fonte_pontuacao.render(
+        f"Pontuação final: {pontuacao}", True, COR_BRANCA
+    )
+    aviso_reiniciar = fonte_aviso.render(
+        "Pressione R para reiniciar ou Q para sair.", True, COR_TEXTO
+    )
+
+    tela.blit(
+        texto_fim,
+        (
+            (largura - texto_fim.get_width()) // 2,
+            altura // 3,
+        ),
+    )
+    tela.blit(
+        texto_pontuacao,
+        (
+            (largura - texto_pontuacao.get_width()) // 2,
+            altura // 2,
+        ),
+    )
+    tela.blit(
+        aviso_reiniciar,
+        (
+            (largura - aviso_reiniciar.get_width()) // 2,
+            altura * 2 // 3,
+        ),
+    )
+
+    pygame.display.flip()
 
 def desenhar_jogo(
     tela,
@@ -188,7 +240,7 @@ def desenhar_jogo(
     fonte_pontuacao,
     fonte_aviso,
     camera_ativa,
-    largura,
+    largura
 ):
     """Desenha o jogo e os indicadores de controle pelos pés."""
     tela.fill(COR_FUNDO)
@@ -274,11 +326,18 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
     quadrados = []
     arrastando_mouse = None
     rodando = True
+    esta_pausado = False
 
     while rodando:
         dt = relogio.tick(TAXA_QUADROS) / 1000
         horario_atual = pygame.time.get_ticks() / 1000
-        segundo_passados = (horario_atual - horario_inicio)
+        segundo_passados = min(
+            horario_atual - horario_inicio,
+            TEMPO_JOGO,
+        )
+
+        if segundo_passados >= TEMPO_JOGO:
+            esta_pausado = True
 
         minutos, segundos = divmod(segundo_passados, 60)
         tempo = f"{int(minutos):02d}:{int(segundos):02d}"
@@ -289,44 +348,55 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
             arrastando_mouse,
             largura,
             altura,
+            esta_pausado,
         )
 
-        outros = (
-            [arrastando_mouse] if arrastando_mouse is not None else []
-        )
-        controle.atualizar(
-            rastreador.pes_na_tela(),
-            dt,
-            quadrados,
-            outros,
-        )
+        if esta_pausado:
+            desenhar_menu_fim(
+                tela,
+                pontuacao,
+                fonte_pontuacao,
+                fonte_aviso,
+                largura,
+                altura
+            )
+        else:
+            outros = (
+                [arrastando_mouse] if arrastando_mouse is not None else []
+            )
+            controle.atualizar(
+                rastreador.pes_na_tela(),
+                dt,
+                quadrados,
+                outros,
+            )
 
-        agora = pygame.time.get_ticks()
-        ultimo_spawn = gerar_quadrado(quadrados, agora, ultimo_spawn)
+            agora = pygame.time.get_ticks()
+            ultimo_spawn = gerar_quadrado(quadrados, agora, ultimo_spawn)
 
-        ocupados = controle.carregados() + outros
-        quadrados, pontuacao, arrastando_mouse = atualizar_quadrados(
-            quadrados,
-            controle,
-            ocupados,
-            arrastando_mouse,
-            alvos,
-            altura,
-            pontuacao,
-        )
+            ocupados = controle.carregados() + outros
+            quadrados, pontuacao, arrastando_mouse = atualizar_quadrados(
+                quadrados,
+                controle,
+                ocupados,
+                arrastando_mouse,
+                alvos,
+                altura,
+                pontuacao,
+            )
 
-        desenhar_jogo(
-            tela,
-            alvos,
-            quadrados,
-            controle,
-            pontuacao,
-            tempo,
-            fonte_pontuacao,
-            fonte_aviso,
-            camera_ativa,
-            largura,
-        )
+            desenhar_jogo(
+                tela,
+                alvos,
+                quadrados,
+                controle,
+                pontuacao,
+                tempo,
+                fonte_pontuacao,
+                fonte_aviso,
+                camera_ativa,
+                largura,
+            )
         atualizar_janela_camera(rastreador)
 
 
