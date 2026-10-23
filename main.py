@@ -61,6 +61,7 @@ def lixeira_tocada(quadrado):
 
 
 rodando = True
+## loop principal do jogo
 while rodando:
     dt = relogio.tick(60) / 1000
     for evento in pygame.event.get():
@@ -103,6 +104,8 @@ while rodando:
             pontuacao += 100
         else:
             pontuacao -= 50
+            if pontuacao < 0:
+                pontuacao = 0
         controle.soltar(quadrado)
         if arrastando_mouse is quadrado:
             arrastando_mouse = None
