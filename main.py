@@ -46,10 +46,12 @@ COR_PRETA = (0, 0, 0)
 TAMANHO_ITEM_SPRITE = 64
 MARGEM_PEGAR_BASE = 17
 VELOCIDADE_QUADRADO_BASE = 2 / 3
+AUMENTO_VELOCIDADE_BASE = 1 / 6
 FREQUENCIA_SPAWN = 0.4
 PONTOS_ACERTO = 100
 PENALIDADE_ERRO = 50
 TEMPO_JOGO = 90
+INTERVALO_DIFICULDADE = 30
 TEMPO_BOTAO_PE = 3
 QUANTIDADE_LIXEIRAS = 4
 ESPACAMENTO_SPRITE = 32
@@ -64,6 +66,7 @@ MARGEM_INTERNA_UI = None
 RAIO_PE = None
 MARGEM_PEGAR = None
 VELOCIDADE_QUADRADO = None
+AUMENTO_VELOCIDADE = None
 TAMANHO_ITEM = None
 ESPACAMENTO = None
 LARGURA_LIXEIRA = None
@@ -84,7 +87,7 @@ multiplicadorEspacamento = None
 def configurar_escala(largura, altura):
     global TAMANHO_ITEM, ESPACAMENTO, LARGURA_LIXEIRA, ALTURA_LIXEIRA, ALTURA_HITBOX_LIXEIRA
     global FONTE_PONTUACAO_TAMANHO, FONTE_AVISO_TAMANHO, MARGEM_UI, RAIO_PE
-    global MARGEM_PEGAR, VELOCIDADE_QUADRADO, multiplicadorEspacamento
+    global MARGEM_PEGAR, VELOCIDADE_QUADRADO, AUMENTO_VELOCIDADE, multiplicadorEspacamento
     global FONTE_HUD_TAMANHO, MARGEM_INTERNA_UI
 
     escala = min(largura / LARGURA_BASE, altura / ALTURA_BASE)
@@ -104,6 +107,7 @@ def configurar_escala(largura, altura):
     RAIO_PE = round(RAIO_PE_BASE * escala)
     MARGEM_PEGAR = round(MARGEM_PEGAR_BASE * escala)
     VELOCIDADE_QUADRADO = VELOCIDADE_QUADRADO_BASE * escala
+    AUMENTO_VELOCIDADE = AUMENTO_VELOCIDADE_BASE * escala
     multiplicadorEspacamento = round(multiplicadorEspacamentoBase * escala)
 
     TAMANHO_ITEM = round(TAMANHO_ITEM_SPRITE * escala)
@@ -255,7 +259,8 @@ def atualizar_lixos(
     altura,
     pontuacao,
     multiplicador,
-    acertos
+    acertos,
+    velocidade,
 ):
     """Move os lixos, trata colisões e atualiza a pontuação."""
     restantes = []
@@ -263,7 +268,7 @@ def atualizar_lixos(
     for quadrado in lixos:
         carregado = any(quadrado is item for item in ocupados)
         if not carregado:
-            quadrado[1] += VELOCIDADE_QUADRADO
+            quadrado[1] += velocidade
         if quadrado[1] > altura:
             continue
 
@@ -612,6 +617,8 @@ def executar_jogo(tela, rastreador, controle):
             horario_atual - horario_inicio,
             TEMPO_JOGO,
         )
+        nivel = int(segundo_passados // INTERVALO_DIFICULDADE)
+        velocidade = VELOCIDADE_QUADRADO + nivel * AUMENTO_VELOCIDADE
 
         if segundo_passados >= TEMPO_JOGO:
             esta_pausado = True
@@ -662,7 +669,8 @@ def executar_jogo(tela, rastreador, controle):
                 altura,
                 pontuacao,
                 multiplicador,
-                acertos
+                acertos,
+                velocidade,
             )
 
             desenhar_jogo(
