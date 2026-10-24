@@ -1,3 +1,4 @@
+import json
 import random
 from pathlib import Path
 
@@ -22,6 +23,7 @@ OPACIDADE_FUNDO_UI = 102
 LARGURA_BASE = 640
 ALTURA_BASE = 400
 CAMINHO_FONTE_HUD = Path(__file__).resolve().parent / "assets" / "fonts" / "PressStart2P-Regular.ttf"
+CAMINHO_MENSAGENS = Path(__file__).resolve().parent / "assets" / "mensagens.json"
 
 # Cores da interface e dos alvos
 COR_VERDE = (0, 200, 0)
@@ -580,20 +582,53 @@ def executar_tela_inicial(tela, rastreador, controle):
     botoes = criar_botoes(largura, altura, "Novo Jogo", altura // 2)
     return executar_menu(tela, rastreador, controle, botoes, [])
 
+def carregar_mensagens():
+    with open(CAMINHO_MENSAGENS, encoding="utf-8") as arquivo:
+        return json.load(arquivo)["mensagens"]
+
+def quebrar_linhas(fonte, texto, largura_maxima):
+    linhas = []
+    linha = ""
+    for palavra in texto.split():
+        tentativa = f"{linha} {palavra}".strip()
+        if linha and fonte.size(tentativa)[0] > largura_maxima:
+            linhas.append(linha)
+            linha = palavra
+        else:
+            linha = tentativa
+    if linha:
+        linhas.append(linha)
+    return linhas
+
 def executar_menu_fim(tela, rastreador, controle, pontuacao, fonte_pontuacao, fonte_aviso):
     largura, altura = tela.get_size()
+    botoes = criar_botoes(largura, altura, "Recomeçar", altura * 3 // 4)
     texto_fim = fonte_aviso.render("Fim de jogo!", True, COR_BRANCA)
     texto_pontuacao = fonte_pontuacao.render(
         f"Pontuação final: {pontuacao}", True, COR_BRANCA
     )
+    topo_pontuacao = altura // 3
     textos = [
-        (texto_fim, ((largura - texto_fim.get_width()) // 2, altura // 3)),
+        (texto_fim, ((largura - texto_fim.get_width()) // 2, altura // 5)),
         (
             texto_pontuacao,
-            ((largura - texto_pontuacao.get_width()) // 2, altura // 2),
+            ((largura - texto_pontuacao.get_width()) // 2, topo_pontuacao),
         ),
     ]
-    botoes = criar_botoes(largura, altura, "Recomeçar", altura * 3 // 4)
+
+    largura_mensagem = botoes[1][0].right - botoes[0][0].left
+    mensagem = random.choice(carregar_mensagens())
+    linhas = [
+        fonte_aviso.render(linha, True, COR_TEXTO)
+        for linha in quebrar_linhas(fonte_aviso, mensagem, largura_mensagem)
+    ]
+    fim_pontuacao = topo_pontuacao + texto_pontuacao.get_height()
+    altura_mensagem = sum(linha.get_height() for linha in linhas)
+    y = (fim_pontuacao + botoes[0][0].top - altura_mensagem) // 2
+    for linha in linhas:
+        textos.append((linha, ((largura - linha.get_width()) // 2, y)))
+        y += linha.get_height()
+
     return executar_menu(tela, rastreador, controle, botoes, textos)
 
 def executar_jogo(tela, rastreador, controle):
