@@ -14,13 +14,20 @@ FONTE_PONTUACAO_TAMANHO = 96
 FONTE_AVISO_TAMANHO = 56
 MARGEM_UI = 40
 RAIO_PE = 30
+ESCALA = 3
 
 # Cores da interface e dos alvos
 COR_VERDE = (0, 200, 0)
 COR_AZUL = (0, 100, 255)
 COR_VERMELHA = (220, 0, 0)
 COR_AMARELA = (255, 220, 0)
-CORES_ALVOS = (COR_VERDE, COR_AZUL, COR_VERMELHA, COR_AMARELA)
+CORES_ALVOS = (COR_AZUL, COR_VERMELHA, COR_AMARELA, COR_VERDE)
+TIPO_ITEM_POR_COR = {
+    COR_VERDE: "vidro",
+    COR_AMARELA: "metal",
+    COR_AZUL: "papel",
+    COR_VERMELHA: "plastico",
+}
 COR_FUNDO = (30, 30, 30)
 COR_BRANCA = (255, 255, 255)
 COR_TEXTO = (200, 200, 200)
@@ -28,9 +35,7 @@ COR_CINZA = (128, 128, 128)
 
 # Constantes da área e das regras do jogo
 
-ALVO_ALTURA = 170
-ALVO_ESPACAMENTO = 80
-TAMANHO_QUADRADO = 88
+TAMANHO_ITEM = 64 * ESCALA
 MARGEM_PEGAR = 50
 VELOCIDADE_QUADRADO = 2
 FREQUENCIA_SPAWN = 0.4
@@ -38,6 +43,12 @@ PONTOS_ACERTO = 100
 PENALIDADE_ERRO = 50
 TEMPO_JOGO = 90
 TEMPO_BOTAO_PE = 3
+QUANTIDADE_LIXEIRAS = 4
+ESPACAMENTO = 96
+LARGURA_LIXEIRA = 192 * ESCALA
+ALTURA_LIXEIRA = 160 * ESCALA
+ALTURA_HITBOX_LIXEIRA = ALTURA_LIXEIRA - 224
+SPRITES_ITENS = {}
 
 # multiplicador de pontos
 
@@ -46,19 +57,26 @@ multiplicadorMax = 5
 multiplicadorEspacamento = 30
 
 def criar_alvos(largura, altura):
-    """Cria os retângulos-alvo na parte inferior da tela."""
-    alvo_largura = (largura - (len(CORES_ALVOS) + 1) * ALVO_ESPACAMENTO) // len(CORES_ALVOS)
+    """Cria hitboxes um pouco mais baixas que os sprites das lixeiras."""
+    posicoes = separar_itens_horizontalmente(
+        QUANTIDADE_LIXEIRAS,
+        LARGURA_LIXEIRA,
+        ALTURA_LIXEIRA,
+        ESPACAMENTO,
+        largura,
+        altura,
+    )
     return [
         (
             pygame.Rect(
-                ALVO_ESPACAMENTO + indice * (alvo_largura + ALVO_ESPACAMENTO),
-                altura - ALVO_ALTURA - ALVO_ESPACAMENTO,
-                alvo_largura,
-                ALVO_ALTURA,
+                x,
+                y + ALTURA_LIXEIRA - ALTURA_HITBOX_LIXEIRA,
+                LARGURA_LIXEIRA,
+                ALTURA_HITBOX_LIXEIRA,
             ),
             cor,
         )
-        for indice, cor in enumerate(CORES_ALVOS)
+        for (x, y), cor in zip(posicoes, CORES_ALVOS)
     ]
 
 
@@ -67,8 +85,8 @@ def lixeira_tocada(quadrado, alvos):
     caixa = pygame.Rect(
         quadrado[0],
         quadrado[1],
-        TAMANHO_QUADRADO,
-        TAMANHO_QUADRADO,
+        TAMANHO_ITEM,
+        TAMANHO_ITEM,
     )
     alvo_tocado = None
     maior_contato = 0
@@ -77,7 +95,7 @@ def lixeira_tocada(quadrado, alvos):
         contato = min(caixa.right, retangulo.right) - max(
             caixa.left, retangulo.left
         )
-        if caixa.bottom >= retangulo.top and contato > maior_contato:
+        if caixa.colliderect(retangulo) and contato > maior_contato:
             alvo_tocado = cor_alvo
             maior_contato = contato
 
@@ -115,7 +133,7 @@ def processar_eventos(
                 evento.pos,
                 quadrados,
                 controle.carregados(),
-                TAMANHO_QUADRADO,
+                TAMANHO_ITEM,
                 MARGEM_PEGAR,
             )
         elif evento.type == pygame.MOUSEBUTTONUP and evento.button == 1:
@@ -127,7 +145,7 @@ def processar_eventos(
             mover(
                 arrastando_mouse,
                 evento.pos,
-                TAMANHO_QUADRADO,
+                TAMANHO_ITEM,
                 largura,
                 altura,
             )
@@ -136,7 +154,7 @@ def processar_eventos(
 
 
 def gerar_quadrado(quadrados, colunas, agora, ultimo_spawn):
-    """Adiciona um quadrado em uma coluna livre quando chega a hora."""
+    """Gera um item reciclável aleatório em uma coluna livre."""
     intervalo_spawn = 1000 / FREQUENCIA_SPAWN
     if agora - ultimo_spawn < intervalo_spawn:
         return ultimo_spawn
@@ -145,7 +163,7 @@ def gerar_quadrado(quadrados, colunas, agora, ultimo_spawn):
         coluna
         for coluna in colunas
         if not any(
-            abs(quadrado[0] - coluna) < TAMANHO_QUADRADO
+            abs(quadrado[0] - coluna) < TAMANHO_ITEM
             and quadrado[1] < 0
             for quadrado in quadrados
         )
@@ -153,13 +171,22 @@ def gerar_quadrado(quadrados, colunas, agora, ultimo_spawn):
     if not colunas_livres:
         return ultimo_spawn
 
-    quadrados.append(
-        [
-            random.choice(colunas_livres),
-            -TAMANHO_QUADRADO,
-            random.choice(CORES_ALVOS),
-        ]
-    )
+    cor = random.choice(CORES_ALVOS)
+    tipo = TIPO_ITEM_POR_COR[cor]
+    numero_sprite = random.randint(1, 2)
+    caminho_sprite = f"./assets/{tipo}-{numero_sprite}.png"
+    if caminho_sprite not in SPRITES_ITENS:
+        imagem = pygame.image.load(caminho_sprite).convert_alpha()
+        SPRITES_ITENS[caminho_sprite] = pygame.transform.scale(
+            imagem, (TAMANHO_ITEM, TAMANHO_ITEM)
+        )
+
+    quadrados.append([
+        random.choice(colunas_livres),
+        -TAMANHO_ITEM,
+        cor,
+        SPRITES_ITENS[caminho_sprite],
+    ])
     return agora
 
 
@@ -245,6 +272,63 @@ def desenhar_menu_fim(tela, pontuacao, fonte_pontuacao, fonte_aviso, largura, al
 
     pygame.display.flip()
 
+def desenhar_sprite (tela, imagem, posicao):
+    """Desenha um sprite na tela na posição especificada."""
+
+    largura_original = imagem.get_width()
+    altura_original = imagem.get_height()
+
+    imagem = pygame.transform.scale(imagem, (largura_original * ESCALA, altura_original * ESCALA))
+
+    tela.blit(imagem, posicao)
+
+def separar_itens_horizontalmente(
+    quantidade,
+    largura,
+    altura,
+    espacamento,
+    largura_tela,
+    altura_tela,
+):
+    """Centraliza itens horizontalmente e os alinha à base da tela."""
+    largura_total = (quantidade * largura + (quantidade - 1 ) * espacamento)
+    margem_esquerda = (largura_tela - largura_total) // 2
+
+    itens = []
+
+    for i in range(quantidade):
+        x = margem_esquerda + i * (
+            largura + espacamento
+        )
+
+        y = altura_tela - altura
+
+        itens.append((x, y))
+
+    return itens
+
+def desenhar_lixeiras(tela):
+    """Desenha as lixeiras na parte inferior da tela"""
+    largura_tela, altura_tela = tela.get_size()
+    posicoes = separar_itens_horizontalmente(
+        QUANTIDADE_LIXEIRAS,
+        LARGURA_LIXEIRA,
+        ALTURA_LIXEIRA,
+        ESPACAMENTO,
+        largura_tela,
+        altura_tela,
+    )
+
+    for indice, pos in enumerate(posicoes):
+        num_sprite = indice + 1
+        lixeira_sprite = pygame.image.load(
+            f'./assets/lixeira-{num_sprite}.png'
+        ).convert_alpha()
+
+        desenhar_sprite(tela, lixeira_sprite, pos)
+
+
+
 def desenhar_jogo(
     tela,
     alvos,
@@ -261,15 +345,10 @@ def desenhar_jogo(
     """Desenha o jogo e os indicadores de controle pelos pés."""
     tela.fill(COR_FUNDO)
 
-    for retangulo, cor_alvo in alvos:
-        pygame.draw.rect(tela, cor_alvo, retangulo)
+    desenhar_lixeiras(tela)
 
-    for x, y, cor in quadrados:
-        pygame.draw.rect(
-            tela,
-            cor,
-            (int(x), int(y), TAMANHO_QUADRADO, TAMANHO_QUADRADO),
-        )
+    for x, y, _, sprite in quadrados:
+        tela.blit(sprite, (int(x), int(y)))
 
     texto_pontuacao = fonte_pontuacao.render(
         str(pontuacao), True, COR_BRANCA
@@ -432,7 +511,7 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
     """Executa o loop principal do jogo."""
     largura, altura = tela.get_size()
     alvos = criar_alvos(largura, altura)
-    colunas = [retangulo.centerx - TAMANHO_QUADRADO // 2 for retangulo, _ in alvos]
+    colunas = [retangulo.centerx - TAMANHO_ITEM // 2 for retangulo, _ in alvos]
     relogio = pygame.time.Clock()
     horario_inicio = pygame.time.get_ticks() / 1000
     fonte_pontuacao = pygame.font.Font(None, FONTE_PONTUACAO_TAMANHO)
@@ -537,7 +616,7 @@ def main():
         rastreador = RastreadorPes(config, largura, altura)
         camera_ativa = rastreador.iniciar()
         controle = ControlePes(
-            TAMANHO_QUADRADO,
+            TAMANHO_ITEM,
             MARGEM_PEGAR,
             largura,
             altura,
