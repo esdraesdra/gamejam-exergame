@@ -1,4 +1,5 @@
 import random
+from pathlib import Path
 
 import cv2
 import pygame
@@ -49,6 +50,8 @@ LARGURA_LIXEIRA = 192 * ESCALA
 ALTURA_LIXEIRA = 160 * ESCALA
 ALTURA_HITBOX_LIXEIRA = ALTURA_LIXEIRA - 224
 SPRITES_ITENS = {}
+IMAGEM_FUNDO = None
+SPRITES_CAMINHOES = {}
 
 # multiplicador de pontos
 
@@ -103,7 +106,7 @@ def lixeira_tocada(quadrado, alvos):
 
 
 def processar_eventos(
-    quadrados,
+    lixos,
     controle,
     arrastando_mouse,
     largura,
@@ -131,7 +134,7 @@ def processar_eventos(
         elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             arrastando_mouse = quadrado_em(
                 evento.pos,
-                quadrados,
+                lixos,
                 controle.carregados(),
                 TAMANHO_ITEM,
                 MARGEM_PEGAR,
@@ -153,7 +156,7 @@ def processar_eventos(
     return rodando, arrastando_mouse, reiniciar
 
 
-def gerar_quadrado(quadrados, colunas, agora, ultimo_spawn):
+def gerar_quadrado(lixos, colunas, agora, ultimo_spawn):
     """Gera um item reciclável aleatório em uma coluna livre."""
     intervalo_spawn = 1000 / FREQUENCIA_SPAWN
     if agora - ultimo_spawn < intervalo_spawn:
@@ -165,7 +168,7 @@ def gerar_quadrado(quadrados, colunas, agora, ultimo_spawn):
         if not any(
             abs(quadrado[0] - coluna) < TAMANHO_ITEM
             and quadrado[1] < 0
-            for quadrado in quadrados
+            for quadrado in lixos
         )
     ]
     if not colunas_livres:
@@ -181,7 +184,7 @@ def gerar_quadrado(quadrados, colunas, agora, ultimo_spawn):
             imagem, (TAMANHO_ITEM, TAMANHO_ITEM)
         )
 
-    quadrados.append([
+    lixos.append([
         random.choice(colunas_livres),
         -TAMANHO_ITEM,
         cor,
@@ -190,8 +193,8 @@ def gerar_quadrado(quadrados, colunas, agora, ultimo_spawn):
     return agora
 
 
-def atualizar_quadrados(
-    quadrados,
+def atualizar_lixos(
+    lixos,
     controle,
     ocupados,
     arrastando_mouse,
@@ -201,10 +204,10 @@ def atualizar_quadrados(
     multiplicador,
     acertos
 ):
-    """Move os quadrados, trata colisões e atualiza a pontuação."""
+    """Move os lixos, trata colisões e atualiza a pontuação."""
     restantes = []
 
-    for quadrado in quadrados:
+    for quadrado in lixos:
         carregado = any(quadrado is item for item in ocupados)
         if not carregado:
             quadrado[1] += VELOCIDADE_QUADRADO
@@ -328,11 +331,42 @@ def desenhar_lixeiras(tela):
         desenhar_sprite(tela, lixeira_sprite, pos)
 
 
+def desenhar_fundo(tela):
+    """Desenha o fundo do jogo, carregando e escalando a imagem sob demanda."""
+    global IMAGEM_FUNDO
+
+    tamanho_tela = tela.get_size()
+    if IMAGEM_FUNDO is None or IMAGEM_FUNDO.get_size() != tamanho_tela:
+        caminho = Path(__file__).resolve().parent / "assets" / "background.png"
+        imagem = pygame.image.load(str(caminho)).convert()
+        IMAGEM_FUNDO = pygame.transform.scale(imagem, tamanho_tela)
+
+    tela.blit(IMAGEM_FUNDO, (0, 0))
+
+
+def desenhar_caminhao(tela, numero):
+    """Desenha um caminhão no topo, escalado à largura da tela."""
+    tamanho_tela = tela.get_size()
+    chave = (numero, tamanho_tela)
+    if chave not in SPRITES_CAMINHOES:
+        caminho = (
+            Path(__file__).resolve().parent
+            / "assets"
+            / f"caminhao-{numero}.png"
+        )
+        imagem = pygame.image.load(str(caminho)).convert_alpha()
+        altura = round(imagem.get_height() * tamanho_tela[0] / imagem.get_width())
+        SPRITES_CAMINHOES[chave] = pygame.transform.scale(
+            imagem, (tamanho_tela[0], altura)
+        )
+
+    tela.blit(SPRITES_CAMINHOES[chave], (0, 0))
+
+
 
 def desenhar_jogo(
     tela,
-    alvos,
-    quadrados,
+    lixos,
     controle,
     pontuacao,
     multiplicador,
@@ -343,12 +377,15 @@ def desenhar_jogo(
     largura
 ):
     """Desenha o jogo e os indicadores de controle pelos pés."""
-    tela.fill(COR_FUNDO)
+    desenhar_fundo(tela)
+    desenhar_caminhao(tela, 1)
 
     desenhar_lixeiras(tela)
 
-    for x, y, _, sprite in quadrados:
+    for x, y, _, sprite in lixos:
         tela.blit(sprite, (int(x), int(y)))
+
+    desenhar_caminhao(tela, 2)
 
     texto_pontuacao = fonte_pontuacao.render(
         str(pontuacao), True, COR_BRANCA
@@ -415,7 +452,7 @@ def reiniciar_jogo():
     pontuacao = 0
     multiplicador = 1
     acertos = 0
-    quadrados = []
+    lixos = []
     ultimo_spawn = 0
     horario_inicio = pygame.time.get_ticks() / 1000
     arrastando_mouse = None
@@ -425,7 +462,7 @@ def reiniciar_jogo():
         pontuacao,
         multiplicador,
         acertos,
-        quadrados,
+        lixos,
         ultimo_spawn,
         horario_inicio,
         arrastando_mouse,
@@ -518,7 +555,7 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
     fonte_aviso = pygame.font.Font(None, FONTE_AVISO_TAMANHO)
     rodando = True
 
-    pontuacao, multiplicador, acertos, quadrados, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
+    pontuacao, multiplicador, acertos, lixos, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
 
     while rodando:
         dt = relogio.tick(TAXA_QUADROS) / 1000
@@ -535,7 +572,7 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
         tempo = f"{int(minutos):02d}:{int(segundos):02d}"
 
         rodando, arrastando_mouse, reiniciar = processar_eventos(
-            quadrados,
+            lixos,
             controle,
             arrastando_mouse,
             largura,
@@ -544,7 +581,7 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
         )
 
         if reiniciar:
-            pontuacao, multiplicador, acertos, quadrados, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
+            pontuacao, multiplicador, acertos, lixos, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
 
         if esta_pausado:
             desenhar_menu_fim(
@@ -562,16 +599,16 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
             controle.atualizar(
                 rastreador.pes_na_tela(),
                 dt,
-                quadrados,
+                lixos,
                 outros,
             )
 
             agora = pygame.time.get_ticks()
-            ultimo_spawn = gerar_quadrado(quadrados, colunas, agora, ultimo_spawn)
+            ultimo_spawn = gerar_quadrado(lixos, colunas, agora, ultimo_spawn)
 
             ocupados = controle.carregados() + outros
-            quadrados, pontuacao, arrastando_mouse, multiplicador, acertos = atualizar_quadrados(
-                quadrados,
+            lixos, pontuacao, arrastando_mouse, multiplicador, acertos = atualizar_lixos(
+                lixos,
                 controle,
                 ocupados,
                 arrastando_mouse,
@@ -584,8 +621,7 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
 
             desenhar_jogo(
                 tela,
-                alvos,
-                quadrados,
+                lixos,
                 controle,
                 pontuacao,
                 multiplicador,
