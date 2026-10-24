@@ -11,11 +11,12 @@ from pes.rastreador import RastreadorPes
 # Constantes da interface
 TAXA_QUADROS = 60
 TITULO_JANELA = "Catalixo"
-FONTE_PONTUACAO_TAMANHO = 96
-FONTE_AVISO_TAMANHO = 56
-MARGEM_UI = 40
-RAIO_PE = 30
-ESCALA = 3
+FONTE_PONTUACAO_TAMANHO_BASE = 32
+FONTE_AVISO_TAMANHO_BASE = 19
+MARGEM_UI_BASE = 13
+RAIO_PE_BASE = 10
+LARGURA_BASE = 640
+ALTURA_BASE = 400
 
 # Cores da interface e dos alvos
 COR_VERDE = (0, 200, 0)
@@ -36,20 +37,32 @@ COR_CINZA = (128, 128, 128)
 
 # Constantes da área e das regras do jogo
 
-TAMANHO_ITEM = 64 * ESCALA
-MARGEM_PEGAR = 50
-VELOCIDADE_QUADRADO = 2
+TAMANHO_ITEM_SPRITE = 64
+MARGEM_PEGAR_BASE = 17
+VELOCIDADE_QUADRADO_BASE = 2 / 3
 FREQUENCIA_SPAWN = 0.4
 PONTOS_ACERTO = 100
 PENALIDADE_ERRO = 50
 TEMPO_JOGO = 90
 TEMPO_BOTAO_PE = 3
 QUANTIDADE_LIXEIRAS = 4
-ESPACAMENTO = 96
-LARGURA_LIXEIRA = 192 * ESCALA
-ALTURA_LIXEIRA = 160 * ESCALA
-ALTURA_HITBOX_LIXEIRA = ALTURA_LIXEIRA - 224
+ESPACAMENTO_SPRITE = 32
+LARGURA_LIXEIRA_SPRITE = 192
+ALTURA_LIXEIRA_SPRITE = 160
+TOPO_HITBOX_LIXEIRA_SPRITE = 75
+FONTE_PONTUACAO_TAMANHO = None
+FONTE_AVISO_TAMANHO = None
+MARGEM_UI = None
+RAIO_PE = None
+MARGEM_PEGAR = None
+VELOCIDADE_QUADRADO = None
+TAMANHO_ITEM = None
+ESPACAMENTO = None
+LARGURA_LIXEIRA = None
+ALTURA_LIXEIRA = None
+ALTURA_HITBOX_LIXEIRA = None
 SPRITES_ITENS = {}
+SPRITES_LIXEIRAS = {}
 IMAGEM_FUNDO = None
 SPRITES_CAMINHOES = {}
 
@@ -57,7 +70,36 @@ SPRITES_CAMINHOES = {}
 
 multiplicadorAcertos = 3
 multiplicadorMax = 5
-multiplicadorEspacamento = 30
+multiplicadorEspacamentoBase = 10
+multiplicadorEspacamento = None
+
+def configurar_escala(largura, altura):
+    global TAMANHO_ITEM, ESPACAMENTO, LARGURA_LIXEIRA, ALTURA_LIXEIRA, ALTURA_HITBOX_LIXEIRA
+    global FONTE_PONTUACAO_TAMANHO, FONTE_AVISO_TAMANHO, MARGEM_UI, RAIO_PE
+    global MARGEM_PEGAR, VELOCIDADE_QUADRADO, multiplicadorEspacamento
+
+    escala = min(largura / LARGURA_BASE, altura / ALTURA_BASE)
+    escala_lixeira = min(
+        escala,
+        largura / (
+            QUANTIDADE_LIXEIRAS * LARGURA_LIXEIRA_SPRITE
+            + (QUANTIDADE_LIXEIRAS + 1) * ESPACAMENTO_SPRITE
+        ),
+    )
+
+    FONTE_PONTUACAO_TAMANHO = round(FONTE_PONTUACAO_TAMANHO_BASE * escala)
+    FONTE_AVISO_TAMANHO = round(FONTE_AVISO_TAMANHO_BASE * escala)
+    MARGEM_UI = round(MARGEM_UI_BASE * escala)
+    RAIO_PE = round(RAIO_PE_BASE * escala)
+    MARGEM_PEGAR = round(MARGEM_PEGAR_BASE * escala)
+    VELOCIDADE_QUADRADO = VELOCIDADE_QUADRADO_BASE * escala
+    multiplicadorEspacamento = round(multiplicadorEspacamentoBase * escala)
+
+    TAMANHO_ITEM = round(TAMANHO_ITEM_SPRITE * escala)
+    ESPACAMENTO = round(ESPACAMENTO_SPRITE * escala_lixeira)
+    LARGURA_LIXEIRA = round(LARGURA_LIXEIRA_SPRITE * escala_lixeira)
+    ALTURA_LIXEIRA = round(ALTURA_LIXEIRA_SPRITE * escala_lixeira)
+    ALTURA_HITBOX_LIXEIRA = ALTURA_LIXEIRA - round(TOPO_HITBOX_LIXEIRA_SPRITE * escala_lixeira)
 
 def criar_alvos(largura, altura):
     """Cria hitboxes um pouco mais baixas que os sprites das lixeiras."""
@@ -275,16 +317,6 @@ def desenhar_menu_fim(tela, pontuacao, fonte_pontuacao, fonte_aviso, largura, al
 
     pygame.display.flip()
 
-def desenhar_sprite (tela, imagem, posicao):
-    """Desenha um sprite na tela na posição especificada."""
-
-    largura_original = imagem.get_width()
-    altura_original = imagem.get_height()
-
-    imagem = pygame.transform.scale(imagem, (largura_original * ESCALA, altura_original * ESCALA))
-
-    tela.blit(imagem, posicao)
-
 def separar_itens_horizontalmente(
     quantidade,
     largura,
@@ -324,11 +356,19 @@ def desenhar_lixeiras(tela):
 
     for indice, pos in enumerate(posicoes):
         num_sprite = indice + 1
-        lixeira_sprite = pygame.image.load(
-            f'./assets/lixeira-{num_sprite}.png'
-        ).convert_alpha()
+        chave = (num_sprite, LARGURA_LIXEIRA, ALTURA_LIXEIRA)
+        if chave not in SPRITES_LIXEIRAS:
+            caminho = (
+                Path(__file__).resolve().parent
+                / "assets"
+                / f"lixeira-{num_sprite}.png"
+            )
+            imagem = pygame.image.load(str(caminho)).convert_alpha()
+            SPRITES_LIXEIRAS[chave] = pygame.transform.scale(
+                imagem, (LARGURA_LIXEIRA, ALTURA_LIXEIRA)
+            )
 
-        desenhar_sprite(tela, lixeira_sprite, pos)
+        tela.blit(SPRITES_LIXEIRAS[chave], pos)
 
 
 def desenhar_fundo(tela):
@@ -648,6 +688,7 @@ def main():
         )
         pygame.display.set_caption(TITULO_JANELA)
         largura, altura = tela.get_size()
+        configurar_escala(largura, altura)
 
         rastreador = RastreadorPes(config, largura, altura)
         camera_ativa = rastreador.iniciar()
