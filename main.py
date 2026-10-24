@@ -92,6 +92,7 @@ def processar_eventos(
 ):
     """Processa eventos de saída e interação com o mouse."""
     rodando = True
+    reiniciar = False
 
     for evento in pygame.event.get():
         if evento.type == pygame.QUIT:
@@ -104,7 +105,7 @@ def processar_eventos(
         elif evento.type == pygame.KEYDOWN and evento.key in (
                     pygame.K_r,
         ):
-            pass
+            reiniciar = True
         elif pausado:
             continue
         elif evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
@@ -129,7 +130,7 @@ def processar_eventos(
                 altura,
             )
 
-    return rodando, arrastando_mouse
+    return rodando, arrastando_mouse, reiniciar
 
 
 def gerar_quadrado(quadrados, colunas, agora, ultimo_spawn):
@@ -329,6 +330,26 @@ def atualizar_janela_camera(rastreador):
         cv2.imshow("webcam", captura)
         cv2.waitKey(1)
 
+def reiniciar_jogo():
+    pontuacao = 0
+    multiplicador = 1
+    acertos = 0
+    quadrados = []
+    ultimo_spawn = 0
+    horario_inicio = pygame.time.get_ticks() / 1000
+    arrastando_mouse = None
+    esta_pausado = False
+
+    return (
+        pontuacao,
+        multiplicador,
+        acertos,
+        quadrados,
+        ultimo_spawn,
+        horario_inicio,
+        arrastando_mouse,
+        esta_pausado,
+    )
 
 def executar_jogo(tela, rastreador, controle, camera_ativa):
     """Executa o loop principal do jogo."""
@@ -339,15 +360,9 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
     horario_inicio = pygame.time.get_ticks() / 1000
     fonte_pontuacao = pygame.font.Font(None, FONTE_PONTUACAO_TAMANHO)
     fonte_aviso = pygame.font.Font(None, FONTE_AVISO_TAMANHO)
-
-    pontuacao = 0
-    multiplicador = 1
-    acertos = 0
-    ultimo_spawn = 0
-    quadrados = []
-    arrastando_mouse = None
     rodando = True
-    esta_pausado = False
+
+    pontuacao, multiplicador, acertos, quadrados, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
 
     while rodando:
         dt = relogio.tick(TAXA_QUADROS) / 1000
@@ -363,7 +378,7 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
         minutos, segundos = divmod(segundo_passados, 60)
         tempo = f"{int(minutos):02d}:{int(segundos):02d}"
 
-        rodando, arrastando_mouse = processar_eventos(
+        rodando, arrastando_mouse, reiniciar = processar_eventos(
             quadrados,
             controle,
             arrastando_mouse,
@@ -371,6 +386,9 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
             altura,
             esta_pausado,
         )
+
+        if reiniciar:
+            pontuacao, multiplicador, acertos, quadrados, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
 
         if esta_pausado:
             desenhar_menu_fim(
