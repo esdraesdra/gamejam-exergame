@@ -8,8 +8,6 @@ from pes.controle import ControlePes, mover, quadrado_em
 from pes.rastreador import RastreadorPes
 
 # Constantes da interface
-JANELA_LARGURA = 1920
-JANELA_ALTURA = 1200
 TAXA_QUADROS = 60
 TITULO_JANELA = "Catalixo"
 FONTE_PONTUACAO_TAMANHO = 96
@@ -29,11 +27,8 @@ COR_TEXTO = (200, 200, 200)
 
 # Constantes da área e das regras do jogo
 
-ALVO_LARGURA = 380
 ALVO_ALTURA = 170
 ALVO_ESPACAMENTO = 80
-ALVO_TOPO = JANELA_ALTURA - ALVO_ALTURA - ALVO_ESPACAMENTO
-COLUNAS = (226, 686, 1146, 1606)
 TAMANHO_QUADRADO = 88
 MARGEM_PEGAR = 50
 VELOCIDADE_QUADRADO = 2
@@ -42,14 +37,15 @@ PONTOS_ACERTO = 100
 PENALIDADE_ERRO = 50
 TEMPO_JOGO = 90
 
-def criar_alvos():
+def criar_alvos(largura, altura):
     """Cria os retângulos-alvo na parte inferior da tela."""
+    alvo_largura = (largura - (len(CORES_ALVOS) + 1) * ALVO_ESPACAMENTO) // len(CORES_ALVOS)
     return [
         (
             pygame.Rect(
-                ALVO_ESPACAMENTO + indice * (ALVO_LARGURA + ALVO_ESPACAMENTO),
-                ALVO_TOPO,
-                ALVO_LARGURA,
+                ALVO_ESPACAMENTO + indice * (alvo_largura + ALVO_ESPACAMENTO),
+                altura - ALVO_ALTURA - ALVO_ESPACAMENTO,
+                alvo_largura,
                 ALVO_ALTURA,
             ),
             cor,
@@ -130,7 +126,7 @@ def processar_eventos(
     return rodando, arrastando_mouse
 
 
-def gerar_quadrado(quadrados, agora, ultimo_spawn):
+def gerar_quadrado(quadrados, colunas, agora, ultimo_spawn):
     """Adiciona um quadrado em uma coluna livre quando chega a hora."""
     intervalo_spawn = 1000 / FREQUENCIA_SPAWN
     if agora - ultimo_spawn < intervalo_spawn:
@@ -138,7 +134,7 @@ def gerar_quadrado(quadrados, agora, ultimo_spawn):
 
     colunas_livres = [
         coluna
-        for coluna in COLUNAS
+        for coluna in colunas
         if not any(
             abs(quadrado[0] - coluna) < TAMANHO_QUADRADO
             and quadrado[1] < 0
@@ -316,7 +312,8 @@ def atualizar_janela_camera(rastreador):
 def executar_jogo(tela, rastreador, controle, camera_ativa):
     """Executa o loop principal do jogo."""
     largura, altura = tela.get_size()
-    alvos = criar_alvos()
+    alvos = criar_alvos(largura, altura)
+    colunas = [retangulo.centerx - TAMANHO_QUADRADO // 2 for retangulo, _ in alvos]
     relogio = pygame.time.Clock()
     horario_inicio = pygame.time.get_ticks() / 1000
     fonte_pontuacao = pygame.font.Font(None, FONTE_PONTUACAO_TAMANHO)
@@ -373,7 +370,7 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
             )
 
             agora = pygame.time.get_ticks()
-            ultimo_spawn = gerar_quadrado(quadrados, agora, ultimo_spawn)
+            ultimo_spawn = gerar_quadrado(quadrados, colunas, agora, ultimo_spawn)
 
             ocupados = controle.carregados() + outros
             quadrados, pontuacao, arrastando_mouse = atualizar_quadrados(
@@ -408,7 +405,11 @@ def main():
     rastreador = None
 
     try:
-        tela = pygame.display.set_mode((JANELA_LARGURA, JANELA_ALTURA), pygame.FULLSCREEN)
+        tela = pygame.display.set_mode(
+            (config["screen_width"], config["screen_height"]),
+            pygame.FULLSCREEN,
+            display=config["screen_position"],
+        )
         pygame.display.set_caption(TITULO_JANELA)
         largura, altura = tela.get_size()
 

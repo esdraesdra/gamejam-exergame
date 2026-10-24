@@ -11,6 +11,8 @@ CONTROL_WIDTH, CONTROL_HEIGHT = 640, 480
 def carregar_config():
     config = {
         "screen_position": 1,
+        "screen_width": 1920,
+        "screen_height": 1200,
         "camera_position": 0,
         "backend_camera": cv2.CAP_ANY,
         "model": PathConfig.model("pose_landmarker_full.task"),
@@ -22,7 +24,10 @@ def carregar_config():
     
     calibracao = CalibrationService()
         
-    config["screen_position"] = calibracao.get_screen_info()["screen_position"]
+    tela = calibracao.get_screen_info()
+    config["screen_position"] = tela["screen_position"]
+    config["screen_width"] = tela["screen_width"]
+    config["screen_height"] = tela["screen_height"]
     config["camera_position"] = calibracao.get_camera_info()["camera_position"]
     config["backend_camera"] = calibracao.get_opencv_capture_backend()
     ponto = calibracao.find_by_id_calibration_point(CalibrationPoint.ID_VALUE)
