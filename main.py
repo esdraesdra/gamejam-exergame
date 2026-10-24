@@ -290,44 +290,6 @@ def atualizar_lixos(
 
     return restantes, pontuacao, arrastando_mouse, multiplicador, acertos
 
-def desenhar_menu_fim(tela, pontuacao, fonte_pontuacao, fonte_aviso, largura, altura):
-    """Desenha a tela de fim de jogo com a pontuação final."""
-    tela.fill(COR_FUNDO)
-
-    texto_fim = fonte_aviso.render(
-        "Fim de jogo!", True, COR_BRANCA
-    )
-    texto_pontuacao = fonte_pontuacao.render(
-        f"Pontuação final: {pontuacao}", True, COR_BRANCA
-    )
-    aviso_reiniciar = fonte_aviso.render(
-        "Pressione R para reiniciar ou Q para sair.", True, COR_TEXTO
-    )
-
-    tela.blit(
-        texto_fim,
-        (
-            (largura - texto_fim.get_width()) // 2,
-            altura // 3,
-        ),
-    )
-    tela.blit(
-        texto_pontuacao,
-        (
-            (largura - texto_pontuacao.get_width()) // 2,
-            altura // 2,
-        ),
-    )
-    tela.blit(
-        aviso_reiniciar,
-        (
-            (largura - aviso_reiniciar.get_width()) // 2,
-            altura * 2 // 3,
-        ),
-    )
-
-    pygame.display.flip()
-
 def separar_itens_horizontalmente(
     quantidade,
     largura,
@@ -530,14 +492,14 @@ def reiniciar_jogo():
         esta_pausado,
     )
 
-def criar_botoes(largura, altura):
+def criar_botoes(largura, altura, rotulo_principal, centro_y):
     botao_largura = largura // 3
     botao_altura = altura // 5
     espacamento = largura // 12
     esquerda = (largura - 2 * botao_largura - espacamento) // 2
-    topo = (altura - botao_altura) // 2
+    topo = centro_y - botao_altura // 2
     return [
-        (pygame.Rect(esquerda, topo, botao_largura, botao_altura), "Novo Jogo", True),
+        (pygame.Rect(esquerda, topo, botao_largura, botao_altura), rotulo_principal, True),
         (
             pygame.Rect(esquerda + botao_largura + espacamento, topo, botao_largura, botao_altura),
             "Sair",
@@ -545,8 +507,11 @@ def criar_botoes(largura, altura):
         ),
     ]
 
-def desenhar_tela_inicial(tela, botoes, progresso, controle, fonte):
+def desenhar_menu(tela, botoes, progresso, controle, fonte, textos):
     tela.fill(COR_FUNDO)
+
+    for imagem, posicao in textos:
+        tela.blit(imagem, posicao)
 
     for retangulo, texto, _ in botoes:
         pygame.draw.rect(tela, COR_CINZA, retangulo)
@@ -568,9 +533,7 @@ def desenhar_tela_inicial(tela, botoes, progresso, controle, fonte):
 
     pygame.display.flip()
 
-def executar_tela_inicial(tela, rastreador, controle):
-    largura, altura = tela.get_size()
-    botoes = criar_botoes(largura, altura)
+def executar_menu(tela, rastreador, controle, botoes, textos):
     fonte = pygame.font.Font(None, FONTE_PONTUACAO_TAMANHO)
     relogio = pygame.time.Clock()
     progresso = [0.0 for _ in botoes]
@@ -586,6 +549,8 @@ def executar_tela_inicial(tela, rastreador, controle):
                 pygame.K_q,
             ):
                 return False
+            if evento.type == pygame.KEYDOWN and evento.key == pygame.K_r:
+                return True
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 for retangulo, _, acao in botoes:
                     if retangulo.collidepoint(evento.pos):
@@ -602,8 +567,29 @@ def executar_tela_inicial(tela, rastreador, controle):
             if progresso[indice] >= TEMPO_BOTAO_PE:
                 return acao
 
-        desenhar_tela_inicial(tela, botoes, progresso, controle, fonte)
+        desenhar_menu(tela, botoes, progresso, controle, fonte, textos)
         atualizar_janela_camera(rastreador)
+
+def executar_tela_inicial(tela, rastreador, controle):
+    largura, altura = tela.get_size()
+    botoes = criar_botoes(largura, altura, "Novo Jogo", altura // 2)
+    return executar_menu(tela, rastreador, controle, botoes, [])
+
+def executar_menu_fim(tela, rastreador, controle, pontuacao, fonte_pontuacao, fonte_aviso):
+    largura, altura = tela.get_size()
+    texto_fim = fonte_aviso.render("Fim de jogo!", True, COR_BRANCA)
+    texto_pontuacao = fonte_pontuacao.render(
+        f"Pontuação final: {pontuacao}", True, COR_BRANCA
+    )
+    textos = [
+        (texto_fim, ((largura - texto_fim.get_width()) // 2, altura // 3)),
+        (
+            texto_pontuacao,
+            ((largura - texto_pontuacao.get_width()) // 2, altura // 2),
+        ),
+    ]
+    botoes = criar_botoes(largura, altura, "Recomeçar", altura * 3 // 4)
+    return executar_menu(tela, rastreador, controle, botoes, textos)
 
 def executar_jogo(tela, rastreador, controle):
     """Executa o loop principal do jogo."""
@@ -646,14 +632,12 @@ def executar_jogo(tela, rastreador, controle):
             pontuacao, multiplicador, acertos, lixos, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
 
         if esta_pausado:
-            desenhar_menu_fim(
-                tela,
-                pontuacao,
-                fonte_pontuacao,
-                fonte_aviso,
-                largura,
-                altura
-            )
+            for quadrado in controle.carregados():
+                controle.soltar(quadrado)
+            if executar_menu_fim(tela, rastreador, controle, pontuacao, fonte_pontuacao, fonte_aviso):
+                pontuacao, multiplicador, acertos, lixos, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
+            else:
+                rodando = False
         else:
             outros = (
                 [arrastando_mouse] if arrastando_mouse is not None else []
