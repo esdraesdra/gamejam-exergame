@@ -24,6 +24,7 @@ CORES_ALVOS = (COR_VERDE, COR_AZUL, COR_VERMELHA, COR_AMARELA)
 COR_FUNDO = (30, 30, 30)
 COR_BRANCA = (255, 255, 255)
 COR_TEXTO = (200, 200, 200)
+COR_CINZA = (128, 128, 128)
 
 # Constantes da área e das regras do jogo
 
@@ -36,6 +37,7 @@ FREQUENCIA_SPAWN = 0.4
 PONTOS_ACERTO = 100
 PENALIDADE_ERRO = 50
 TEMPO_JOGO = 90
+TEMPO_BOTAO_PE = 3
 
 # multiplicador de pontos
 
@@ -351,6 +353,81 @@ def reiniciar_jogo():
         esta_pausado,
     )
 
+def criar_botoes(largura, altura):
+    botao_largura = largura // 3
+    botao_altura = altura // 5
+    espacamento = largura // 12
+    esquerda = (largura - 2 * botao_largura - espacamento) // 2
+    topo = (altura - botao_altura) // 2
+    return [
+        (pygame.Rect(esquerda, topo, botao_largura, botao_altura), "Novo Jogo", True),
+        (
+            pygame.Rect(esquerda + botao_largura + espacamento, topo, botao_largura, botao_altura),
+            "Sair",
+            False,
+        ),
+    ]
+
+def desenhar_tela_inicial(tela, botoes, progresso, controle, fonte):
+    tela.fill(COR_FUNDO)
+
+    for retangulo, texto, _ in botoes:
+        pygame.draw.rect(tela, COR_CINZA, retangulo)
+        rotulo = fonte.render(texto, True, COR_BRANCA)
+        tela.blit(rotulo, rotulo.get_rect(center=retangulo.center))
+
+    for pe in controle.pes:
+        if not pe["ativo"]:
+            continue
+
+        centro = (int(pe["x"]), int(pe["y"]))
+        pygame.draw.circle(tela, COR_BRANCA, centro, RAIO_PE, 4)
+        for (retangulo, _, _), tempo in zip(botoes, progresso):
+            if tempo > 0 and retangulo.collidepoint(centro):
+                fim = 2 * 3.14159 * min(tempo / TEMPO_BOTAO_PE, 1)
+                caixa = pygame.Rect(0, 0, RAIO_PE * 3, RAIO_PE * 3)
+                caixa.center = centro
+                pygame.draw.arc(tela, COR_AMARELA, caixa, 0, fim, 6)
+
+    pygame.display.flip()
+
+def executar_tela_inicial(tela, rastreador, controle):
+    largura, altura = tela.get_size()
+    botoes = criar_botoes(largura, altura)
+    fonte = pygame.font.Font(None, FONTE_PONTUACAO_TAMANHO)
+    relogio = pygame.time.Clock()
+    progresso = [0.0 for _ in botoes]
+
+    while True:
+        dt = relogio.tick(TAXA_QUADROS) / 1000
+
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                return False
+            if evento.type == pygame.KEYDOWN and evento.key in (
+                pygame.K_ESCAPE,
+                pygame.K_q,
+            ):
+                return False
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                for retangulo, _, acao in botoes:
+                    if retangulo.collidepoint(evento.pos):
+                        return acao
+
+        controle.atualizar(rastreador.pes_na_tela(), dt, [])
+
+        for indice, (retangulo, _, acao) in enumerate(botoes):
+            pisado = any(
+                pe["ativo"] and retangulo.collidepoint(pe["x"], pe["y"])
+                for pe in controle.pes
+            )
+            progresso[indice] = progresso[indice] + dt if pisado else 0.0
+            if progresso[indice] >= TEMPO_BOTAO_PE:
+                return acao
+
+        desenhar_tela_inicial(tela, botoes, progresso, controle, fonte)
+        atualizar_janela_camera(rastreador)
+
 def executar_jogo(tela, rastreador, controle, camera_ativa):
     """Executa o loop principal do jogo."""
     largura, altura = tela.get_size()
@@ -466,7 +543,8 @@ def main():
             altura,
         )
 
-        executar_jogo(tela, rastreador, controle, camera_ativa)
+        if executar_tela_inicial(tela, rastreador, controle):
+            executar_jogo(tela, rastreador, controle, camera_ativa)
     finally:
         if rastreador is not None:
             rastreador.parar()
