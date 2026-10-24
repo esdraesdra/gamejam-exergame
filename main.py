@@ -15,8 +15,13 @@ FONTE_PONTUACAO_TAMANHO_BASE = 32
 FONTE_AVISO_TAMANHO_BASE = 19
 MARGEM_UI_BASE = 13
 RAIO_PE_BASE = 10
+FONTE_HUD_TAMANHO_BASE = 24
+GRADE_FONTE_HUD = 8
+MARGEM_INTERNA_UI_BASE = 4
+OPACIDADE_FUNDO_UI = 102
 LARGURA_BASE = 640
 ALTURA_BASE = 400
+CAMINHO_FONTE_HUD = Path(__file__).resolve().parent / "assets" / "fonts" / "PressStart2P-Regular.ttf"
 
 # Cores da interface e dos alvos
 COR_VERDE = (0, 200, 0)
@@ -34,6 +39,7 @@ COR_FUNDO = (30, 30, 30)
 COR_BRANCA = (255, 255, 255)
 COR_TEXTO = (200, 200, 200)
 COR_CINZA = (128, 128, 128)
+COR_PRETA = (0, 0, 0)
 
 # Constantes da área e das regras do jogo
 
@@ -53,6 +59,8 @@ TOPO_HITBOX_LIXEIRA_SPRITE = 75
 FONTE_PONTUACAO_TAMANHO = None
 FONTE_AVISO_TAMANHO = None
 MARGEM_UI = None
+FONTE_HUD_TAMANHO = None
+MARGEM_INTERNA_UI = None
 RAIO_PE = None
 MARGEM_PEGAR = None
 VELOCIDADE_QUADRADO = None
@@ -77,6 +85,7 @@ def configurar_escala(largura, altura):
     global TAMANHO_ITEM, ESPACAMENTO, LARGURA_LIXEIRA, ALTURA_LIXEIRA, ALTURA_HITBOX_LIXEIRA
     global FONTE_PONTUACAO_TAMANHO, FONTE_AVISO_TAMANHO, MARGEM_UI, RAIO_PE
     global MARGEM_PEGAR, VELOCIDADE_QUADRADO, multiplicadorEspacamento
+    global FONTE_HUD_TAMANHO, MARGEM_INTERNA_UI
 
     escala = min(largura / LARGURA_BASE, altura / ALTURA_BASE)
     escala_lixeira = min(
@@ -90,6 +99,8 @@ def configurar_escala(largura, altura):
     FONTE_PONTUACAO_TAMANHO = round(FONTE_PONTUACAO_TAMANHO_BASE * escala)
     FONTE_AVISO_TAMANHO = round(FONTE_AVISO_TAMANHO_BASE * escala)
     MARGEM_UI = round(MARGEM_UI_BASE * escala)
+    FONTE_HUD_TAMANHO = round(FONTE_HUD_TAMANHO_BASE * escala / GRADE_FONTE_HUD) * GRADE_FONTE_HUD
+    MARGEM_INTERNA_UI = round(MARGEM_INTERNA_UI_BASE * escala)
     RAIO_PE = round(RAIO_PE_BASE * escala)
     MARGEM_PEGAR = round(MARGEM_PEGAR_BASE * escala)
     VELOCIDADE_QUADRADO = VELOCIDADE_QUADRADO_BASE * escala
@@ -403,6 +414,15 @@ def desenhar_caminhao(tela, numero):
     tela.blit(SPRITES_CAMINHOES[chave], (0, 0))
 
 
+def desenhar_fundo_texto(tela, retangulo):
+    fundo = pygame.Surface(retangulo.size, pygame.SRCALPHA)
+    fundo.fill((*COR_PRETA, OPACIDADE_FUNDO_UI))
+    tela.blit(fundo, retangulo.topleft)
+
+
+def renderizar_texto_3d(fonte, texto, cor):
+    return fonte.render(texto, False, cor), fonte.render(texto, False, COR_PRETA)
+
 
 def desenhar_jogo(
     tela,
@@ -411,9 +431,7 @@ def desenhar_jogo(
     pontuacao,
     multiplicador,
     tempo,
-    fonte_pontuacao,
-    fonte_aviso,
-    camera_ativa,
+    fonte_hud,
     largura
 ):
     """Desenha o jogo e os indicadores de controle pelos pés."""
@@ -427,31 +445,40 @@ def desenhar_jogo(
 
     desenhar_caminhao(tela, 2)
 
-    texto_pontuacao = fonte_pontuacao.render(
-        str(pontuacao), True, COR_BRANCA
+    texto_pontuacao, sombra_pontuacao = renderizar_texto_3d(
+        fonte_hud, str(pontuacao), COR_BRANCA
     )
-    texto_tempo = fonte_pontuacao.render(
-        tempo, True, COR_BRANCA
+    texto_tempo, sombra_tempo = renderizar_texto_3d(
+        fonte_hud, tempo, COR_BRANCA
     )
-    texto_multiplicador = fonte_pontuacao.render(
-        f"x{multiplicador}", True, COR_BRANCA
+    texto_multiplicador, sombra_multiplicador = renderizar_texto_3d(
+        fonte_hud, f"x{multiplicador}", COR_AMARELA
     )
     x_multiplicador = largura - texto_multiplicador.get_width() - MARGEM_UI
-    tela.blit(texto_multiplicador, (x_multiplicador, MARGEM_UI))
-    tela.blit(
-        texto_pontuacao,
-        (
-            x_multiplicador - multiplicadorEspacamento - texto_pontuacao.get_width(),
-            MARGEM_UI,
-        ),
+    caixa_multiplicador = texto_multiplicador.get_rect(
+        topleft=(x_multiplicador, MARGEM_UI)
     )
-    tela.blit(
-        texto_tempo,
-        (
-            MARGEM_UI,
-            MARGEM_UI
-        ),
+    caixa_pontuacao = texto_pontuacao.get_rect(
+        topright=(x_multiplicador - multiplicadorEspacamento, MARGEM_UI)
     )
+    caixa_tempo = texto_tempo.get_rect(topleft=(MARGEM_UI, MARGEM_UI))
+
+    for fundo in (caixa_tempo, caixa_pontuacao.union(caixa_multiplicador)):
+        desenhar_fundo_texto(
+            tela,
+            fundo.inflate(2 * MARGEM_INTERNA_UI, 2 * MARGEM_INTERNA_UI),
+        )
+
+    pixel_fonte = FONTE_HUD_TAMANHO // GRADE_FONTE_HUD
+    textos = (
+        (texto_multiplicador, sombra_multiplicador, caixa_multiplicador),
+        (texto_pontuacao, sombra_pontuacao, caixa_pontuacao),
+        (texto_tempo, sombra_tempo, caixa_tempo),
+    )
+    for _, sombra, caixa in textos:
+        tela.blit(sombra, caixa.move(pixel_fonte, pixel_fonte))
+    for texto, _, caixa in textos:
+        tela.blit(texto, caixa)
 
     for pe in controle.pes:
         if not pe["ativo"]:
@@ -471,12 +498,6 @@ def desenhar_jogo(
                 caixa = pygame.Rect(0, 0, RAIO_PE * 3, RAIO_PE * 3)
                 caixa.center = centro
                 pygame.draw.arc(tela, COR_AMARELA, caixa, 0, fim, 6)
-
-    if not camera_ativa:
-        aviso = fonte_aviso.render(
-            "Câmera não encontrada: use o mouse", True, COR_TEXTO
-        )
-        tela.blit(aviso, (20, 20))
 
     pygame.display.flip()
 
@@ -584,7 +605,7 @@ def executar_tela_inicial(tela, rastreador, controle):
         desenhar_tela_inicial(tela, botoes, progresso, controle, fonte)
         atualizar_janela_camera(rastreador)
 
-def executar_jogo(tela, rastreador, controle, camera_ativa):
+def executar_jogo(tela, rastreador, controle):
     """Executa o loop principal do jogo."""
     largura, altura = tela.get_size()
     alvos = criar_alvos(largura, altura)
@@ -593,6 +614,7 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
     horario_inicio = pygame.time.get_ticks() / 1000
     fonte_pontuacao = pygame.font.Font(None, FONTE_PONTUACAO_TAMANHO)
     fonte_aviso = pygame.font.Font(None, FONTE_AVISO_TAMANHO)
+    fonte_hud = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_HUD_TAMANHO)
     rodando = True
 
     pontuacao, multiplicador, acertos, lixos, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
@@ -666,9 +688,7 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
                 pontuacao,
                 multiplicador,
                 tempo,
-                fonte_pontuacao,
-                fonte_aviso,
-                camera_ativa,
+                fonte_hud,
                 largura,
             )
         atualizar_janela_camera(rastreador)
@@ -691,7 +711,7 @@ def main():
         configurar_escala(largura, altura)
 
         rastreador = RastreadorPes(config, largura, altura)
-        camera_ativa = rastreador.iniciar()
+        rastreador.iniciar()
         controle = ControlePes(
             TAMANHO_ITEM,
             MARGEM_PEGAR,
@@ -700,7 +720,7 @@ def main():
         )
 
         if executar_tela_inicial(tela, rastreador, controle):
-            executar_jogo(tela, rastreador, controle, camera_ativa)
+            executar_jogo(tela, rastreador, controle)
     finally:
         if rastreador is not None:
             rastreador.parar()
