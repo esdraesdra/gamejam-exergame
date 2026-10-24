@@ -37,6 +37,12 @@ PONTOS_ACERTO = 100
 PENALIDADE_ERRO = 50
 TEMPO_JOGO = 90
 
+# multiplicador de pontos
+
+multiplicadorAcertos = 3
+multiplicadorMax = 5
+multiplicadorEspacamento = 30
+
 def criar_alvos(largura, altura):
     """Cria os retângulos-alvo na parte inferior da tela."""
     alvo_largura = (largura - (len(CORES_ALVOS) + 1) * ALVO_ESPACAMENTO) // len(CORES_ALVOS)
@@ -162,6 +168,8 @@ def atualizar_quadrados(
     alvos,
     altura,
     pontuacao,
+    multiplicador,
+    acertos
 ):
     """Move os quadrados, trata colisões e atualiza a pontuação."""
     restantes = []
@@ -179,15 +187,22 @@ def atualizar_quadrados(
             continue
 
         if quadrado[2] == cor_alvo:
-            pontuacao += PONTOS_ACERTO
+            pontuacao += PONTOS_ACERTO * multiplicador
+            acertos+=1
+            if acertos == multiplicadorAcertos:
+                multiplicador = min(multiplicador + 1, multiplicadorMax)
+                acertos = 0
+
         else:
             pontuacao = max(0, pontuacao - PENALIDADE_ERRO)
+            multiplicador = 1
+            acertos = 0
 
         controle.soltar(quadrado)
         if arrastando_mouse is quadrado:
             arrastando_mouse = None
 
-    return restantes, pontuacao, arrastando_mouse
+    return restantes, pontuacao, arrastando_mouse, multiplicador, acertos
 
 def desenhar_menu_fim(tela, pontuacao, fonte_pontuacao, fonte_aviso, largura, altura):
     """Desenha a tela de fim de jogo com a pontuação final."""
@@ -233,6 +248,7 @@ def desenhar_jogo(
     quadrados,
     controle,
     pontuacao,
+    multiplicador,
     tempo,
     fonte_pontuacao,
     fonte_aviso,
@@ -258,10 +274,15 @@ def desenhar_jogo(
     texto_tempo = fonte_pontuacao.render(
         tempo, True, COR_BRANCA
     )
+    texto_multiplicador = fonte_pontuacao.render(
+        f"x{multiplicador}", True, COR_BRANCA
+    )
+    x_multiplicador = largura - texto_multiplicador.get_width() - MARGEM_UI
+    tela.blit(texto_multiplicador, (x_multiplicador, MARGEM_UI))
     tela.blit(
         texto_pontuacao,
         (
-            largura - texto_pontuacao.get_width() - MARGEM_UI,
+            x_multiplicador - multiplicadorEspacamento - texto_pontuacao.get_width(),
             MARGEM_UI,
         ),
     )
@@ -320,6 +341,8 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
     fonte_aviso = pygame.font.Font(None, FONTE_AVISO_TAMANHO)
 
     pontuacao = 0
+    multiplicador = 1
+    acertos = 0
     ultimo_spawn = 0
     quadrados = []
     arrastando_mouse = None
@@ -373,7 +396,7 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
             ultimo_spawn = gerar_quadrado(quadrados, colunas, agora, ultimo_spawn)
 
             ocupados = controle.carregados() + outros
-            quadrados, pontuacao, arrastando_mouse = atualizar_quadrados(
+            quadrados, pontuacao, arrastando_mouse, multiplicador, acertos = atualizar_quadrados(
                 quadrados,
                 controle,
                 ocupados,
@@ -381,6 +404,8 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
                 alvos,
                 altura,
                 pontuacao,
+                multiplicador,
+                acertos
             )
 
             desenhar_jogo(
@@ -389,6 +414,7 @@ def executar_jogo(tela, rastreador, controle, camera_ativa):
                 quadrados,
                 controle,
                 pontuacao,
+                multiplicador,
                 tempo,
                 fonte_pontuacao,
                 fonte_aviso,
