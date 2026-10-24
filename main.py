@@ -8,14 +8,14 @@ from pes.controle import ControlePes, mover, quadrado_em
 from pes.rastreador import RastreadorPes
 
 # Constantes da interface
-JANELA_LARGURA = 800
-JANELA_ALTURA = 600
+JANELA_LARGURA = 1920
+JANELA_ALTURA = 1200
 TAXA_QUADROS = 60
 TITULO_JANELA = "Catalixo"
-FONTE_PONTUACAO_TAMANHO = 48
-FONTE_AVISO_TAMANHO = 28
-MARGEM_UI = 20
-RAIO_PE = 15
+FONTE_PONTUACAO_TAMANHO = 96
+FONTE_AVISO_TAMANHO = 56
+MARGEM_UI = 40
+RAIO_PE = 30
 
 # Cores da interface e dos alvos
 COR_VERDE = (0, 200, 0)
@@ -28,14 +28,15 @@ COR_BRANCA = (255, 255, 255)
 COR_TEXTO = (200, 200, 200)
 
 # Constantes da área e das regras do jogo
-ALVO_TOPO = 405
-ALVO_LARGURA = 175
-ALVO_ALTURA = 175
-ALVO_ESPACAMENTO = 20
-COLUNAS = (85, 280, 475, 670)
-TAMANHO_QUADRADO = 44
-MARGEM_PEGAR = 25
-VELOCIDADE_QUADRADO = 1
+
+ALVO_LARGURA = 380
+ALVO_ALTURA = 170
+ALVO_ESPACAMENTO = 80
+ALVO_TOPO = JANELA_ALTURA - ALVO_ALTURA - ALVO_ESPACAMENTO
+COLUNAS = (226, 686, 1146, 1606)
+TAMANHO_QUADRADO = 88
+MARGEM_PEGAR = 50
+VELOCIDADE_QUADRADO = 2
 FREQUENCIA_SPAWN = 0.4
 PONTOS_ACERTO = 100
 PENALIDADE_ERRO = 50
@@ -407,10 +408,7 @@ def main():
     rastreador = None
 
     try:
-        tela = pygame.display.set_mode(
-            (JANELA_LARGURA, JANELA_ALTURA),
-            display=config["screen_position"],
-        )
+        tela = pygame.display.set_mode((JANELA_LARGURA, JANELA_ALTURA), pygame.FULLSCREEN)
         pygame.display.set_caption(TITULO_JANELA)
         largura, altura = tela.get_size()
 

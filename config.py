@@ -10,7 +10,7 @@ CONTROL_WIDTH, CONTROL_HEIGHT = 640, 480
 
 def carregar_config():
     config = {
-        "screen_position": 0,
+        "screen_position": 1,
         "camera_position": 0,
         "backend_camera": cv2.CAP_ANY,
         "model": PathConfig.model("pose_landmarker_full.task"),
