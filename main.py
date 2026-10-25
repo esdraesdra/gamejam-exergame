@@ -13,7 +13,6 @@ from pes.rastreador import RastreadorPes
 # Constantes da interface
 TAXA_QUADROS = 60
 TITULO_JANELA = "Catalixo"
-FONTE_PONTUACAO_TAMANHO_BASE = 32
 MARGEM_UI_BASE = 13
 RAIO_PE_BASE = 10
 FONTE_HUD_TAMANHO_BASE = 18
@@ -25,6 +24,7 @@ MARGEM_INTERNA_UI_BASE = 4
 OPACIDADE_FUNDO_UI = 102
 AMPLITUDE_PENDULO = 10
 AMPLITUDE_PENDULO_TITULO = 3
+AMPLITUDE_PENDULO_LOGO = 6
 PERIODO_PENDULO = 1.2
 LARGURA_BASE = 640
 ALTURA_BASE = 400
@@ -34,6 +34,8 @@ CAMINHO_FUNDO_MENU = Path(__file__).resolve().parent / "assets" / "background-me
 CAMINHO_ICONE_TEMPO = Path(__file__).resolve().parent / "assets" / "timer.png"
 CAMINHO_SPRITE_BOTAO_VERDE = Path(__file__).resolve().parent / "assets" / "box-button-green.png"
 CAMINHO_SPRITE_BOTAO_VERMELHO = Path(__file__).resolve().parent / "assets" / "box-button-red.png"
+CAMINHO_LOGO_MUNDO = Path(__file__).resolve().parent / "assets" / "logo-world.png"
+CAMINHO_LOGO_TEXTO = Path(__file__).resolve().parent / "assets" / "logo-text.png"
 
 # Cores da interface e dos alvos
 COR_VERDE = (0, 200, 0)
@@ -50,8 +52,12 @@ TIPO_ITEM_POR_COR = {
 COR_FUNDO = (30, 30, 30)
 COR_BRANCA = (255, 255, 255)
 COR_TEXTO = (200, 200, 200)
-COR_CINZA = (128, 128, 128)
 COR_PRETA = (0, 0, 0)
+LINHAS_CREDITOS = (
+    (("Feito em 10 dias por", COR_BRANCA),),
+    (("Esdras Gabriel Alves e Gustavo de Paula Gorges", COR_VERMELHA),),
+    (("para a ", COR_BRANCA), ("3ª ExerGame Jam", COR_VERDE)),
+)
 SPRITE_BOTAO_POR_COR = {
     COR_VERDE: CAMINHO_SPRITE_BOTAO_VERDE,
     COR_VERMELHA: CAMINHO_SPRITE_BOTAO_VERMELHO,
@@ -79,7 +85,6 @@ ESPACAMENTO_SPRITE = 32
 LARGURA_LIXEIRA_SPRITE = 192
 ALTURA_LIXEIRA_SPRITE = 160
 TOPO_HITBOX_LIXEIRA_SPRITE = 75
-FONTE_PONTUACAO_TAMANHO = None
 MARGEM_UI = None
 FONTE_HUD_TAMANHO = None
 FONTE_TITULO_TAMANHO = None
@@ -116,7 +121,7 @@ def tamanho_fonte_pixel(base, escala):
 
 def configurar_escala(largura, altura):
     global TAMANHO_ITEM, ESPACAMENTO, LARGURA_LIXEIRA, ALTURA_LIXEIRA, ALTURA_HITBOX_LIXEIRA
-    global FONTE_PONTUACAO_TAMANHO, MARGEM_UI, RAIO_PE
+    global MARGEM_UI, RAIO_PE
     global MARGEM_PEGAR, VELOCIDADE_QUADRADO, AUMENTO_VELOCIDADE, multiplicadorEspacamento
     global FONTE_HUD_TAMANHO, FONTE_TITULO_TAMANHO, FONTE_FIM_TAMANHO, FONTE_MENSAGEM_TAMANHO, MARGEM_INTERNA_UI
     global ESCALA_TELA, VELOCIDADE_FUNDO_MENU
@@ -131,7 +136,6 @@ def configurar_escala(largura, altura):
         ),
     )
 
-    FONTE_PONTUACAO_TAMANHO = round(FONTE_PONTUACAO_TAMANHO_BASE * escala)
     MARGEM_UI = round(MARGEM_UI_BASE * escala)
     FONTE_HUD_TAMANHO = tamanho_fonte_pixel(FONTE_HUD_TAMANHO_BASE, escala)
     FONTE_TITULO_TAMANHO = tamanho_fonte_pixel(FONTE_TITULO_TAMANHO_BASE, escala)
@@ -432,6 +436,23 @@ def renderizar_texto_3d(fonte, texto, cor):
 
 def renderizar_texto_3d_com_borda(fonte, texto, cor, espessura):
     texto_cor, texto_preto = renderizar_texto_3d(fonte, texto, cor)
+    return aplicar_borda_3d(texto_cor, texto_preto, espessura)
+
+
+def renderizar_linha_colorida(fonte, partes, espessura):
+    imagens = [fonte.render(texto, False, cor) for texto, cor in partes]
+    texto_cor = pygame.Surface(
+        (sum(imagem.get_width() for imagem in imagens), fonte.get_height()), pygame.SRCALPHA
+    )
+    x = 0
+    for imagem in imagens:
+        texto_cor.blit(imagem, (x, 0))
+        x += imagem.get_width()
+    texto_preto = fonte.render("".join(texto for texto, _ in partes), False, COR_PRETA)
+    return aplicar_borda_3d(texto_cor, texto_preto, espessura)
+
+
+def aplicar_borda_3d(texto_cor, texto_preto, espessura):
     largura, altura = texto_cor.get_size()
     contorno = pygame.Surface((largura + 2 * espessura, altura + 2 * espessura), pygame.SRCALPHA)
     for dx in (-espessura, 0, espessura):
@@ -448,8 +469,8 @@ def angulo_pendulo(amplitude):
     )
 
 
-def posicionar_pendulo(caixa, imagem_girada, angulo):
-    pivo = pygame.math.Vector2(caixa.midtop)
+def posicionar_pendulo(caixa, imagem_girada, angulo, ponto_giro="midtop"):
+    pivo = pygame.math.Vector2(getattr(caixa, ponto_giro))
     centro = pivo + (pygame.math.Vector2(caixa.center) - pivo).rotate(-angulo)
     return imagem_girada.get_rect(center=(round(centro.x), round(centro.y)))
 
@@ -617,7 +638,7 @@ def reiniciar_jogo():
         esta_pausado,
     )
 
-def criar_botoes(largura, altura, rotulo_principal, centro_y, cores=(COR_CINZA, COR_CINZA)):
+def criar_botoes(largura, altura, rotulo_principal, centro_y, cores):
     botao_largura = largura // 3
     botao_altura = altura // 5
     espacamento = largura // 12
@@ -654,34 +675,29 @@ def desenhar_menu(tela, botoes, progresso, controle, fonte, textos, ladrilho_fun
     else:
         desenhar_fundo_rolando(tela, ladrilho_fundo)
 
-    for imagem, posicao, amplitude in textos:
+    for imagem, posicao, amplitude, ponto_giro in textos:
         if amplitude:
             angulo = angulo_pendulo(amplitude)
             girada = pygame.transform.rotate(imagem, angulo)
             caixa = imagem.get_rect(topleft=posicao)
-            tela.blit(girada, posicionar_pendulo(caixa, girada, angulo))
+            tela.blit(girada, posicionar_pendulo(caixa, girada, angulo, ponto_giro))
         else:
             tela.blit(imagem, posicao)
 
     for retangulo, texto, _, cor in botoes:
-        if deslocamento_3d:
-            if USAR_SPRITE_BOTAO:
-                imagem, sombra_botao = imagem_botao(cor, retangulo.size)
-                tela.blit(sombra_botao, retangulo.move(deslocamento_3d, deslocamento_3d))
-                tela.blit(imagem, retangulo)
-            else:
-                pygame.draw.rect(tela, COR_PRETA, retangulo.move(deslocamento_3d, deslocamento_3d))
-                pygame.draw.rect(tela, cor, retangulo)
-                pygame.draw.rect(tela, COR_PRETA, retangulo, deslocamento_3d)
-            espessura = fonte.get_height() // GRADE_FONTE_HUD
-            rotulo, sombra = renderizar_texto_3d_com_borda(fonte, texto, COR_BRANCA, espessura)
-            caixa_rotulo = rotulo.get_rect(center=retangulo.center)
-            tela.blit(sombra, caixa_rotulo.move(espessura, espessura))
-            tela.blit(rotulo, caixa_rotulo)
+        if USAR_SPRITE_BOTAO:
+            imagem, sombra_botao = imagem_botao(cor, retangulo.size)
+            tela.blit(sombra_botao, retangulo.move(deslocamento_3d, deslocamento_3d))
+            tela.blit(imagem, retangulo)
         else:
+            pygame.draw.rect(tela, COR_PRETA, retangulo.move(deslocamento_3d, deslocamento_3d))
             pygame.draw.rect(tela, cor, retangulo)
-            rotulo = fonte.render(texto, True, COR_BRANCA)
-            tela.blit(rotulo, rotulo.get_rect(center=retangulo.center))
+            pygame.draw.rect(tela, COR_PRETA, retangulo, deslocamento_3d)
+        espessura = fonte.get_height() // GRADE_FONTE_HUD
+        rotulo, sombra = renderizar_texto_3d_com_borda(fonte, texto, COR_BRANCA, espessura)
+        caixa_rotulo = rotulo.get_rect(center=retangulo.center)
+        tela.blit(sombra, caixa_rotulo.move(espessura, espessura))
+        tela.blit(rotulo, caixa_rotulo)
 
     for pe in controle.pes:
         if not pe["ativo"]:
@@ -736,9 +752,43 @@ def executar_menu(tela, rastreador, controle, botoes, textos, fonte, ladrilho_fu
 
 def executar_tela_inicial(tela, rastreador, controle):
     largura, altura = tela.get_size()
-    botoes = criar_botoes(largura, altura, "Novo Jogo", altura // 2)
-    fonte = pygame.font.Font(None, FONTE_PONTUACAO_TAMANHO)
-    return executar_menu(tela, rastreador, controle, botoes, [], fonte, None, 0)
+    botoes = criar_botoes(
+        largura, altura, "Novo Jogo", altura // 2, (COR_VERDE, COR_VERMELHA)
+    )
+    ampliacao_logo = 2 * max(1, int(ESCALA_TELA))
+    camadas_logo = []
+    for caminho in (CAMINHO_LOGO_MUNDO, CAMINHO_LOGO_TEXTO):
+        imagem = pygame.image.load(str(caminho)).convert_alpha()
+        camadas_logo.append(
+            pygame.transform.scale(
+                imagem,
+                (imagem.get_width() * ampliacao_logo, imagem.get_height() * ampliacao_logo),
+            )
+        )
+    posicao_logo = camadas_logo[0].get_rect(center=(largura // 2, botoes[0][0].top // 2)).topleft
+    textos = [
+        (camadas_logo[0], posicao_logo, 0, None),
+        (camadas_logo[1], posicao_logo, AMPLITUDE_PENDULO_LOGO, "center"),
+    ]
+    fonte = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_FIM_TAMANHO)
+    deslocamento_3d = FONTE_TITULO_TAMANHO // GRADE_FONTE_HUD
+    fonte_creditos = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_MENSAGEM_TAMANHO)
+    espessura_creditos = fonte_creditos.get_height() // GRADE_FONTE_HUD
+    linhas_creditos = [
+        renderizar_linha_colorida(fonte_creditos, partes, espessura_creditos)
+        for partes in LINHAS_CREDITOS
+    ]
+    textos += empilhar_linhas(
+        linhas_creditos,
+        espessura_creditos,
+        fonte_creditos.get_height() // 2,
+        largura,
+        botoes[0][0].bottom + deslocamento_3d,
+        altura,
+    )
+    return executar_menu(
+        tela, rastreador, controle, botoes, textos, fonte, None, deslocamento_3d
+    )
 
 def carregar_mensagens():
     with open(CAMINHO_MENSAGENS, encoding="utf-8") as arquivo:
@@ -758,6 +808,26 @@ def quebrar_linhas(fonte, texto, largura_maxima):
         linhas.append(linha)
     return linhas
 
+def montar_linhas_texto(fonte, texto, cor, largura_maxima, largura_tela, topo, base):
+    espessura = fonte.get_height() // GRADE_FONTE_HUD
+    espaco_linhas = fonte.get_height() // 2
+    linhas = [
+        renderizar_texto_3d_com_borda(fonte, linha, cor, espessura)
+        for linha in quebrar_linhas(fonte, texto, largura_maxima - 2 * espessura)
+    ]
+    return empilhar_linhas(linhas, espessura, espaco_linhas, largura_tela, topo, base)
+
+def empilhar_linhas(linhas, espessura, espaco_linhas, largura_tela, topo, base):
+    altura_texto = sum(linha.get_height() for linha, _ in linhas) + espaco_linhas * (len(linhas) - 1)
+    y = (topo + base - altura_texto) // 2
+    textos = []
+    for linha, sombra in linhas:
+        x = (largura_tela - linha.get_width()) // 2
+        textos.append((sombra, (x + espessura, y + espessura), 0, None))
+        textos.append((linha, (x, y), 0, None))
+        y += linha.get_height() + espaco_linhas
+    return textos
+
 def executar_menu_fim(tela, rastreador, controle, pontuacao, fundo_jogo):
     largura, altura = tela.get_size()
     fonte_titulo = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_TITULO_TAMANHO)
@@ -771,7 +841,6 @@ def executar_menu_fim(tela, rastreador, controle, pontuacao, fundo_jogo):
         fonte_titulo, "Fim de jogo!", COR_AMARELA, deslocamento_3d
     )
     espessura_fim = FONTE_FIM_TAMANHO // GRADE_FONTE_HUD
-    espessura_mensagem = FONTE_MENSAGEM_TAMANHO // GRADE_FONTE_HUD
     texto_pontuacao, sombra_pontuacao = renderizar_texto_3d_com_borda(
         fonte_fim, f"Pontuação final: {pontuacao}", COR_AZUL, espessura_fim
     )
@@ -783,35 +852,32 @@ def executar_menu_fim(tela, rastreador, controle, pontuacao, fundo_jogo):
             sombra_fim,
             (x_fim + deslocamento_3d, y_fim + deslocamento_3d),
             AMPLITUDE_PENDULO_TITULO,
+            "midtop",
         ),
-        (texto_fim, (x_fim, y_fim), AMPLITUDE_PENDULO_TITULO),
+        (texto_fim, (x_fim, y_fim), AMPLITUDE_PENDULO_TITULO, "midtop"),
         (
             sombra_pontuacao,
             (x_pontuacao + espessura_fim, topo_pontuacao + espessura_fim),
             0,
+            None,
         ),
-        (texto_pontuacao, (x_pontuacao, topo_pontuacao), 0),
+        (texto_pontuacao, (x_pontuacao, topo_pontuacao), 0, None),
     ]
 
     largura_mensagem = botoes[1][0].right - botoes[0][0].left
     mensagem = random.choice(carregar_mensagens())
-    linhas = [
-        renderizar_texto_3d_com_borda(fonte_mensagem, linha, COR_BRANCA, espessura_mensagem)
-        for linha in quebrar_linhas(
-            fonte_mensagem, mensagem, largura_mensagem - 2 * espessura_mensagem
-        )
-    ]
-    espaco_linhas = FONTE_MENSAGEM_TAMANHO // 2
     fim_pontuacao = topo_pontuacao + texto_pontuacao.get_height()
-    altura_mensagem = sum(linha.get_height() for linha, _ in linhas) + espaco_linhas * (len(linhas) - 1)
-    y = (fim_pontuacao + botoes[0][0].top - altura_mensagem) // 2
-    for linha, sombra in linhas:
-        x = (largura - linha.get_width()) // 2
-        textos.append((sombra, (x + espessura_mensagem, y + espessura_mensagem), 0))
-        textos.append((linha, (x, y), 0))
-        y += linha.get_height() + espaco_linhas
+    textos += montar_linhas_texto(
+        fonte_mensagem,
+        mensagem,
+        COR_BRANCA,
+        largura_mensagem,
+        largura,
+        fim_pontuacao,
+        botoes[0][0].top,
+    )
 
-    textos.insert(0, (criar_fundo_texto((largura, altura)), (0, 0), 0))
+    textos.insert(0, (criar_fundo_texto((largura, altura)), (0, 0), 0, None))
 
     ladrilho_fundo = None
     if MOSTRAR_FUNDO_MENU:
@@ -825,7 +891,7 @@ def executar_menu_fim(tela, rastreador, controle, pontuacao, fundo_jogo):
             ),
         )
     else:
-        textos.insert(0, (fundo_jogo, (0, 0), 0))
+        textos.insert(0, (fundo_jogo, (0, 0), 0, None))
     return executar_menu(
         tela, rastreador, controle, botoes, textos, fonte_fim, ladrilho_fundo, deslocamento_3d
     )
