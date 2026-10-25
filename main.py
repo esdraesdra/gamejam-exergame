@@ -287,9 +287,9 @@ def gerar_quadrado(lixos, colunas, agora, ultimo_spawn):
     cor = random.choice(CORES_ALVOS)
     tipo = TIPO_ITEM_POR_COR[cor]
     numero_sprite = random.randint(1, 2)
-    caminho_sprite = f"./assets/{tipo}-{numero_sprite}.png"
+    caminho_sprite = Path(__file__).resolve().parent / "assets" / f"{tipo}-{numero_sprite}.png"
     if caminho_sprite not in SPRITES_ITENS:
-        imagem = pygame.image.load(caminho_sprite).convert_alpha()
+        imagem = pygame.image.load(str(caminho_sprite)).convert_alpha()
         SPRITES_ITENS[caminho_sprite] = pygame.transform.scale(
             imagem, (TAMANHO_ITEM, TAMANHO_ITEM)
         )
