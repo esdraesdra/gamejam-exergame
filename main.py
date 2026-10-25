@@ -13,6 +13,8 @@ from pes.rastreador import RastreadorPes
 
 # Constantes da interface
 TAXA_QUADROS = 60
+FPS_ANIMACAO_INICIO = 4
+DURACAO_FADE_ANIMACAO_MS = 1000
 TITULO_JANELA = "Catalixo"
 MARGEM_UI_BASE = 13
 RAIO_PE_BASE = 10
@@ -32,6 +34,9 @@ ALTURA_BASE = 400
 CAMINHO_FONTE_HUD = Path(__file__).resolve().parent / "assets" / "fonts" / "PressStart2P-Regular.ttf"
 CAMINHO_MENSAGENS = Path(__file__).resolve().parent / "assets" / "mensagens.json"
 CAMINHO_FUNDO_MENU = Path(__file__).resolve().parent / "assets" / "background-menu.png"
+CAMINHO_ANIMACAO_INICIO = (
+    Path(__file__).resolve().parent / "assets" / "animacao"
+)
 CAMINHO_ICONE_TEMPO = Path(__file__).resolve().parent / "assets" / "timer.png"
 CAMINHO_SPRITE_BOTAO_VERDE = Path(__file__).resolve().parent / "assets" / "box-button-green.png"
 CAMINHO_SPRITE_BOTAO_VERMELHO = Path(__file__).resolve().parent / "assets" / "box-button-red.png"
@@ -824,6 +829,67 @@ def executar_tela_inicial(tela, rastreador, controle):
         tela, rastreador, controle, botoes, textos, fonte, None, deslocamento_3d
     )
 
+
+def executar_animacao_inicio(tela, rastreador):
+    """Reproduz a animação de abertura e faz a transição para a gameplay."""
+    quadros = sorted(
+        CAMINHO_ANIMACAO_INICIO.glob("frame-*.png"),
+        key=lambda caminho: int(caminho.stem.rsplit("-", 1)[1]),
+    )
+    if not quadros:
+        raise FileNotFoundError(
+            f"Nenhum quadro encontrado em {CAMINHO_ANIMACAO_INICIO}"
+        )
+
+    duracao_quadro_ms = 1000 // FPS_ANIMACAO_INICIO
+    duracao_animacao_ms = len(quadros) * duracao_quadro_ms
+    inicio = pygame.time.get_ticks()
+    relogio = pygame.time.Clock()
+    indice_quadro = -1
+    imagem_quadro = None
+    sobreposicao_preta = pygame.Surface(tela.get_size())
+    sobreposicao_preta.fill(COR_PRETA)
+
+    while True:
+        relogio.tick(TAXA_QUADROS)
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT or (
+                evento.type == pygame.KEYDOWN
+                and evento.key in (pygame.K_ESCAPE, pygame.K_q)
+            ):
+                return False
+
+        tempo_decorrido = pygame.time.get_ticks() - inicio
+        novo_indice = min(
+            tempo_decorrido // duracao_quadro_ms,
+            len(quadros) - 1,
+        )
+        if novo_indice != indice_quadro:
+            imagem_original = pygame.image.load(
+                str(quadros[novo_indice])
+            ).convert_alpha()
+            imagem_quadro = pygame.transform.scale(
+                imagem_original, tela.get_size()
+            )
+            indice_quadro = novo_indice
+
+        tela.blit(imagem_quadro, (0, 0))
+        tempo_fade = max(0, tempo_decorrido - duracao_animacao_ms)
+        if tempo_fade:
+            alpha_fade = min(
+                255,
+                round(255 * tempo_fade / DURACAO_FADE_ANIMACAO_MS),
+            )
+            sobreposicao_preta.set_alpha(alpha_fade)
+            tela.blit(sobreposicao_preta, (0, 0))
+
+        pygame.display.flip()
+        atualizar_janela_camera(rastreador)
+
+        if tempo_decorrido >= duracao_animacao_ms + DURACAO_FADE_ANIMACAO_MS:
+            return True
+
+
 def carregar_mensagens():
     with open(CAMINHO_MENSAGENS, encoding="utf-8") as arquivo:
         return json.load(arquivo)["mensagens"]
@@ -1119,7 +1185,8 @@ def main():
         )
 
         if executar_tela_inicial(tela, rastreador, controle):
-            executar_jogo(tela, rastreador, controle)
+            if executar_animacao_inicio(tela, rastreador):
+                executar_jogo(tela, rastreador, controle)
     finally:
         if rastreador is not None:
             rastreador.parar()
