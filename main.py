@@ -1,4 +1,5 @@
 import json
+import math
 import random
 from pathlib import Path
 
@@ -13,17 +14,26 @@ from pes.rastreador import RastreadorPes
 TAXA_QUADROS = 60
 TITULO_JANELA = "Catalixo"
 FONTE_PONTUACAO_TAMANHO_BASE = 32
-FONTE_AVISO_TAMANHO_BASE = 19
 MARGEM_UI_BASE = 13
 RAIO_PE_BASE = 10
-FONTE_HUD_TAMANHO_BASE = 24
+FONTE_HUD_TAMANHO_BASE = 18
+FONTE_TITULO_TAMANHO_BASE = 24
+FONTE_FIM_TAMANHO_BASE = 16
+FONTE_MENSAGEM_TAMANHO_BASE = 11
 GRADE_FONTE_HUD = 8
 MARGEM_INTERNA_UI_BASE = 4
 OPACIDADE_FUNDO_UI = 102
+AMPLITUDE_PENDULO = 10
+AMPLITUDE_PENDULO_TITULO = 3
+PERIODO_PENDULO = 1.2
 LARGURA_BASE = 640
 ALTURA_BASE = 400
 CAMINHO_FONTE_HUD = Path(__file__).resolve().parent / "assets" / "fonts" / "PressStart2P-Regular.ttf"
 CAMINHO_MENSAGENS = Path(__file__).resolve().parent / "assets" / "mensagens.json"
+CAMINHO_FUNDO_MENU = Path(__file__).resolve().parent / "assets" / "background-menu.png"
+CAMINHO_ICONE_TEMPO = Path(__file__).resolve().parent / "assets" / "timer.png"
+CAMINHO_SPRITE_BOTAO_VERDE = Path(__file__).resolve().parent / "assets" / "box-button-green.png"
+CAMINHO_SPRITE_BOTAO_VERMELHO = Path(__file__).resolve().parent / "assets" / "box-button-red.png"
 
 # Cores da interface e dos alvos
 COR_VERDE = (0, 200, 0)
@@ -42,6 +52,10 @@ COR_BRANCA = (255, 255, 255)
 COR_TEXTO = (200, 200, 200)
 COR_CINZA = (128, 128, 128)
 COR_PRETA = (0, 0, 0)
+SPRITE_BOTAO_POR_COR = {
+    COR_VERDE: CAMINHO_SPRITE_BOTAO_VERDE,
+    COR_VERMELHA: CAMINHO_SPRITE_BOTAO_VERMELHO,
+}
 
 # Constantes da área e das regras do jogo
 
@@ -49,6 +63,11 @@ TAMANHO_ITEM_SPRITE = 64
 MARGEM_PEGAR_BASE = 17
 VELOCIDADE_QUADRADO_BASE = 2 / 3
 AUMENTO_VELOCIDADE_BASE = 1 / 6
+VELOCIDADE_FUNDO_MENU_BASE = 10
+MOSTRAR_FUNDO_MENU = False
+USAR_SPRITE_BOTAO = True
+CORTE_SPRITE_BOTAO = 16
+AMPLIACAO_EXTRA_FUNDO_MENU = 1
 FREQUENCIA_SPAWN = 0.4
 PONTOS_ACERTO = 100
 PENALIDADE_ERRO = 50
@@ -61,14 +80,18 @@ LARGURA_LIXEIRA_SPRITE = 192
 ALTURA_LIXEIRA_SPRITE = 160
 TOPO_HITBOX_LIXEIRA_SPRITE = 75
 FONTE_PONTUACAO_TAMANHO = None
-FONTE_AVISO_TAMANHO = None
 MARGEM_UI = None
 FONTE_HUD_TAMANHO = None
+FONTE_TITULO_TAMANHO = None
+FONTE_FIM_TAMANHO = None
+FONTE_MENSAGEM_TAMANHO = None
 MARGEM_INTERNA_UI = None
 RAIO_PE = None
 MARGEM_PEGAR = None
 VELOCIDADE_QUADRADO = None
 AUMENTO_VELOCIDADE = None
+ESCALA_TELA = None
+VELOCIDADE_FUNDO_MENU = None
 TAMANHO_ITEM = None
 ESPACAMENTO = None
 LARGURA_LIXEIRA = None
@@ -78,6 +101,8 @@ SPRITES_ITENS = {}
 SPRITES_LIXEIRAS = {}
 IMAGEM_FUNDO = None
 SPRITES_CAMINHOES = {}
+SPRITES_ICONES = {}
+SPRITES_BOTOES = {}
 
 # multiplicador de pontos
 
@@ -86,13 +111,18 @@ multiplicadorMax = 5
 multiplicadorEspacamentoBase = 10
 multiplicadorEspacamento = None
 
+def tamanho_fonte_pixel(base, escala):
+    return round(base * escala / GRADE_FONTE_HUD) * GRADE_FONTE_HUD
+
 def configurar_escala(largura, altura):
     global TAMANHO_ITEM, ESPACAMENTO, LARGURA_LIXEIRA, ALTURA_LIXEIRA, ALTURA_HITBOX_LIXEIRA
-    global FONTE_PONTUACAO_TAMANHO, FONTE_AVISO_TAMANHO, MARGEM_UI, RAIO_PE
+    global FONTE_PONTUACAO_TAMANHO, MARGEM_UI, RAIO_PE
     global MARGEM_PEGAR, VELOCIDADE_QUADRADO, AUMENTO_VELOCIDADE, multiplicadorEspacamento
-    global FONTE_HUD_TAMANHO, MARGEM_INTERNA_UI
+    global FONTE_HUD_TAMANHO, FONTE_TITULO_TAMANHO, FONTE_FIM_TAMANHO, FONTE_MENSAGEM_TAMANHO, MARGEM_INTERNA_UI
+    global ESCALA_TELA, VELOCIDADE_FUNDO_MENU
 
     escala = min(largura / LARGURA_BASE, altura / ALTURA_BASE)
+    ESCALA_TELA = escala
     escala_lixeira = min(
         escala,
         largura / (
@@ -102,15 +132,18 @@ def configurar_escala(largura, altura):
     )
 
     FONTE_PONTUACAO_TAMANHO = round(FONTE_PONTUACAO_TAMANHO_BASE * escala)
-    FONTE_AVISO_TAMANHO = round(FONTE_AVISO_TAMANHO_BASE * escala)
     MARGEM_UI = round(MARGEM_UI_BASE * escala)
-    FONTE_HUD_TAMANHO = round(FONTE_HUD_TAMANHO_BASE * escala / GRADE_FONTE_HUD) * GRADE_FONTE_HUD
+    FONTE_HUD_TAMANHO = tamanho_fonte_pixel(FONTE_HUD_TAMANHO_BASE, escala)
+    FONTE_TITULO_TAMANHO = tamanho_fonte_pixel(FONTE_TITULO_TAMANHO_BASE, escala)
+    FONTE_FIM_TAMANHO = tamanho_fonte_pixel(FONTE_FIM_TAMANHO_BASE, escala)
+    FONTE_MENSAGEM_TAMANHO = tamanho_fonte_pixel(FONTE_MENSAGEM_TAMANHO_BASE, escala)
     MARGEM_INTERNA_UI = round(MARGEM_INTERNA_UI_BASE * escala)
     RAIO_PE = round(RAIO_PE_BASE * escala)
     MARGEM_PEGAR = round(MARGEM_PEGAR_BASE * escala)
     VELOCIDADE_QUADRADO = VELOCIDADE_QUADRADO_BASE * escala
     AUMENTO_VELOCIDADE = AUMENTO_VELOCIDADE_BASE * escala
     multiplicadorEspacamento = round(multiplicadorEspacamentoBase * escala)
+    VELOCIDADE_FUNDO_MENU = VELOCIDADE_FUNDO_MENU_BASE * escala
 
     TAMANHO_ITEM = round(TAMANHO_ITEM_SPRITE * escala)
     ESPACAMENTO = round(ESPACAMENTO_SPRITE * escala_lixeira)
@@ -383,14 +416,89 @@ def desenhar_caminhao(tela, numero):
     tela.blit(SPRITES_CAMINHOES[chave], (0, 0))
 
 
-def desenhar_fundo_texto(tela, retangulo):
-    fundo = pygame.Surface(retangulo.size, pygame.SRCALPHA)
+def criar_fundo_texto(tamanho):
+    fundo = pygame.Surface(tamanho, pygame.SRCALPHA)
     fundo.fill((*COR_PRETA, OPACIDADE_FUNDO_UI))
-    tela.blit(fundo, retangulo.topleft)
+    return fundo
+
+
+def desenhar_fundo_texto(tela, retangulo):
+    tela.blit(criar_fundo_texto(retangulo.size), retangulo.topleft)
 
 
 def renderizar_texto_3d(fonte, texto, cor):
     return fonte.render(texto, False, cor), fonte.render(texto, False, COR_PRETA)
+
+
+def renderizar_texto_3d_com_borda(fonte, texto, cor, espessura):
+    texto_cor, texto_preto = renderizar_texto_3d(fonte, texto, cor)
+    largura, altura = texto_cor.get_size()
+    contorno = pygame.Surface((largura + 2 * espessura, altura + 2 * espessura), pygame.SRCALPHA)
+    for dx in (-espessura, 0, espessura):
+        for dy in (-espessura, 0, espessura):
+            contorno.blit(texto_preto, (espessura + dx, espessura + dy))
+    com_borda = contorno.copy()
+    com_borda.blit(texto_cor, (espessura, espessura))
+    return com_borda, contorno
+
+
+def angulo_pendulo(amplitude):
+    return amplitude * math.sin(
+        2 * math.pi * pygame.time.get_ticks() / 1000 / PERIODO_PENDULO
+    )
+
+
+def posicionar_pendulo(caixa, imagem_girada, angulo):
+    pivo = pygame.math.Vector2(caixa.midtop)
+    centro = pivo + (pygame.math.Vector2(caixa.center) - pivo).rotate(-angulo)
+    return imagem_girada.get_rect(center=(round(centro.x), round(centro.y)))
+
+
+def montar_nine_slice(imagem, tamanho, corte, ampliacao):
+    largura, altura = tamanho
+    largura_imagem, altura_imagem = imagem.get_size()
+    borda = corte * ampliacao
+    colunas = (
+        (0, corte, 0, borda),
+        (corte, largura_imagem - 2 * corte, borda, largura - 2 * borda),
+        (largura_imagem - corte, corte, largura - borda, borda),
+    )
+    linhas = (
+        (0, corte, 0, borda),
+        (corte, altura_imagem - 2 * corte, borda, altura - 2 * borda),
+        (altura_imagem - corte, corte, altura - borda, borda),
+    )
+    resultado = pygame.Surface(tamanho, pygame.SRCALPHA)
+    for origem_x, largura_pedaco, destino_x, largura_destino in colunas:
+        for origem_y, altura_pedaco, destino_y, altura_destino in linhas:
+            pedaco = imagem.subsurface((origem_x, origem_y, largura_pedaco, altura_pedaco))
+            resultado.blit(
+                pygame.transform.scale(pedaco, (largura_destino, altura_destino)),
+                (destino_x, destino_y),
+            )
+    return resultado
+
+
+def imagem_botao(cor, tamanho):
+    chave = (cor, tamanho)
+    if chave not in SPRITES_BOTOES:
+        sprite = pygame.image.load(str(SPRITE_BOTAO_POR_COR[cor])).convert_alpha()
+        ampliacao = max(1, int(ESCALA_TELA))
+        botao = montar_nine_slice(sprite, tamanho, CORTE_SPRITE_BOTAO, ampliacao)
+        sombra = botao.copy()
+        sombra.fill((*COR_PRETA, 255), special_flags=pygame.BLEND_RGBA_MULT)
+        SPRITES_BOTOES[chave] = (botao, sombra)
+    return SPRITES_BOTOES[chave]
+
+
+def carregar_icone_tempo(altura_texto):
+    if altura_texto not in SPRITES_ICONES:
+        imagem = pygame.image.load(str(CAMINHO_ICONE_TEMPO)).convert_alpha()
+        ampliacao = max(1, round(altura_texto / imagem.get_height()))
+        SPRITES_ICONES[altura_texto] = pygame.transform.scale(
+            imagem, (imagem.get_width() * ampliacao, imagem.get_height() * ampliacao)
+        )
+    return SPRITES_ICONES[altura_texto]
 
 
 def desenhar_jogo(
@@ -414,14 +522,15 @@ def desenhar_jogo(
 
     desenhar_caminhao(tela, 2)
 
-    texto_pontuacao, sombra_pontuacao = renderizar_texto_3d(
-        fonte_hud, str(pontuacao), COR_BRANCA
+    pixel_fonte = FONTE_HUD_TAMANHO // GRADE_FONTE_HUD
+    texto_pontuacao, sombra_pontuacao = renderizar_texto_3d_com_borda(
+        fonte_hud, str(pontuacao), COR_BRANCA, pixel_fonte
     )
-    texto_tempo, sombra_tempo = renderizar_texto_3d(
-        fonte_hud, tempo, COR_BRANCA
+    texto_tempo, sombra_tempo = renderizar_texto_3d_com_borda(
+        fonte_hud, tempo, COR_BRANCA, pixel_fonte
     )
-    texto_multiplicador, sombra_multiplicador = renderizar_texto_3d(
-        fonte_hud, f"x{multiplicador}", COR_AMARELA
+    texto_multiplicador, sombra_multiplicador = renderizar_texto_3d_com_borda(
+        fonte_hud, f"x{multiplicador}", COR_AMARELA, pixel_fonte
     )
     x_multiplicador = largura - texto_multiplicador.get_width() - MARGEM_UI
     caixa_multiplicador = texto_multiplicador.get_rect(
@@ -430,17 +539,25 @@ def desenhar_jogo(
     caixa_pontuacao = texto_pontuacao.get_rect(
         topright=(x_multiplicador - multiplicadorEspacamento, MARGEM_UI)
     )
-    caixa_tempo = texto_tempo.get_rect(topleft=(MARGEM_UI, MARGEM_UI))
+    icone_tempo = carregar_icone_tempo(texto_tempo.get_height())
+    caixa_icone = icone_tempo.get_rect(
+        midleft=(MARGEM_UI, MARGEM_UI + (texto_tempo.get_height() - pixel_fonte) // 2)
+    )
+    caixa_tempo = texto_tempo.get_rect(topleft=(caixa_icone.right + pixel_fonte, MARGEM_UI))
 
-    for fundo in (caixa_tempo, caixa_pontuacao.union(caixa_multiplicador)):
+    for fundo in (caixa_icone.union(caixa_tempo), caixa_pontuacao.union(caixa_multiplicador)):
         desenhar_fundo_texto(
             tela,
             fundo.inflate(2 * MARGEM_INTERNA_UI, 2 * MARGEM_INTERNA_UI),
         )
 
-    pixel_fonte = FONTE_HUD_TAMANHO // GRADE_FONTE_HUD
+    angulo = angulo_pendulo(AMPLITUDE_PENDULO)
+    texto_multiplicador = pygame.transform.rotate(texto_multiplicador, angulo)
+    sombra_multiplicador = pygame.transform.rotate(sombra_multiplicador, angulo)
+    caixa_pendulo = posicionar_pendulo(caixa_multiplicador, texto_multiplicador, angulo)
+
     textos = (
-        (texto_multiplicador, sombra_multiplicador, caixa_multiplicador),
+        (texto_multiplicador, sombra_multiplicador, caixa_pendulo),
         (texto_pontuacao, sombra_pontuacao, caixa_pontuacao),
         (texto_tempo, sombra_tempo, caixa_tempo),
     )
@@ -448,6 +565,7 @@ def desenhar_jogo(
         tela.blit(sombra, caixa.move(pixel_fonte, pixel_fonte))
     for texto, _, caixa in textos:
         tela.blit(texto, caixa)
+    tela.blit(icone_tempo, caixa_icone)
 
     for pe in controle.pes:
         if not pe["ativo"]:
@@ -499,31 +617,71 @@ def reiniciar_jogo():
         esta_pausado,
     )
 
-def criar_botoes(largura, altura, rotulo_principal, centro_y):
+def criar_botoes(largura, altura, rotulo_principal, centro_y, cores=(COR_CINZA, COR_CINZA)):
     botao_largura = largura // 3
     botao_altura = altura // 5
     espacamento = largura // 12
     esquerda = (largura - 2 * botao_largura - espacamento) // 2
     topo = centro_y - botao_altura // 2
     return [
-        (pygame.Rect(esquerda, topo, botao_largura, botao_altura), rotulo_principal, True),
+        (
+            pygame.Rect(esquerda, topo, botao_largura, botao_altura),
+            rotulo_principal,
+            True,
+            cores[0],
+        ),
         (
             pygame.Rect(esquerda + botao_largura + espacamento, topo, botao_largura, botao_altura),
             "Sair",
             False,
+            cores[1],
         ),
     ]
 
-def desenhar_menu(tela, botoes, progresso, controle, fonte, textos):
-    tela.fill(COR_FUNDO)
+def desenhar_fundo_rolando(tela, ladrilho):
+    largura, altura = tela.get_size()
+    largura_ladrilho, altura_ladrilho = ladrilho.get_size()
+    deslocamento = int(pygame.time.get_ticks() / 1000 * VELOCIDADE_FUNDO_MENU)
+    inicio_x = -(deslocamento % largura_ladrilho)
+    inicio_y = -(deslocamento % altura_ladrilho)
+    for x in range(inicio_x, largura, largura_ladrilho):
+        for y in range(inicio_y, altura, altura_ladrilho):
+            tela.blit(ladrilho, (x, y))
 
-    for imagem, posicao in textos:
-        tela.blit(imagem, posicao)
+def desenhar_menu(tela, botoes, progresso, controle, fonte, textos, ladrilho_fundo, deslocamento_3d):
+    if ladrilho_fundo is None:
+        tela.fill(COR_FUNDO)
+    else:
+        desenhar_fundo_rolando(tela, ladrilho_fundo)
 
-    for retangulo, texto, _ in botoes:
-        pygame.draw.rect(tela, COR_CINZA, retangulo)
-        rotulo = fonte.render(texto, True, COR_BRANCA)
-        tela.blit(rotulo, rotulo.get_rect(center=retangulo.center))
+    for imagem, posicao, amplitude in textos:
+        if amplitude:
+            angulo = angulo_pendulo(amplitude)
+            girada = pygame.transform.rotate(imagem, angulo)
+            caixa = imagem.get_rect(topleft=posicao)
+            tela.blit(girada, posicionar_pendulo(caixa, girada, angulo))
+        else:
+            tela.blit(imagem, posicao)
+
+    for retangulo, texto, _, cor in botoes:
+        if deslocamento_3d:
+            if USAR_SPRITE_BOTAO:
+                imagem, sombra_botao = imagem_botao(cor, retangulo.size)
+                tela.blit(sombra_botao, retangulo.move(deslocamento_3d, deslocamento_3d))
+                tela.blit(imagem, retangulo)
+            else:
+                pygame.draw.rect(tela, COR_PRETA, retangulo.move(deslocamento_3d, deslocamento_3d))
+                pygame.draw.rect(tela, cor, retangulo)
+                pygame.draw.rect(tela, COR_PRETA, retangulo, deslocamento_3d)
+            espessura = fonte.get_height() // GRADE_FONTE_HUD
+            rotulo, sombra = renderizar_texto_3d_com_borda(fonte, texto, COR_BRANCA, espessura)
+            caixa_rotulo = rotulo.get_rect(center=retangulo.center)
+            tela.blit(sombra, caixa_rotulo.move(espessura, espessura))
+            tela.blit(rotulo, caixa_rotulo)
+        else:
+            pygame.draw.rect(tela, cor, retangulo)
+            rotulo = fonte.render(texto, True, COR_BRANCA)
+            tela.blit(rotulo, rotulo.get_rect(center=retangulo.center))
 
     for pe in controle.pes:
         if not pe["ativo"]:
@@ -531,7 +689,7 @@ def desenhar_menu(tela, botoes, progresso, controle, fonte, textos):
 
         centro = (int(pe["x"]), int(pe["y"]))
         pygame.draw.circle(tela, COR_BRANCA, centro, RAIO_PE, 4)
-        for (retangulo, _, _), tempo in zip(botoes, progresso):
+        for (retangulo, _, _, _), tempo in zip(botoes, progresso):
             if tempo > 0 and retangulo.collidepoint(centro):
                 fim = 2 * 3.14159 * min(tempo / TEMPO_BOTAO_PE, 1)
                 caixa = pygame.Rect(0, 0, RAIO_PE * 3, RAIO_PE * 3)
@@ -540,8 +698,7 @@ def desenhar_menu(tela, botoes, progresso, controle, fonte, textos):
 
     pygame.display.flip()
 
-def executar_menu(tela, rastreador, controle, botoes, textos):
-    fonte = pygame.font.Font(None, FONTE_PONTUACAO_TAMANHO)
+def executar_menu(tela, rastreador, controle, botoes, textos, fonte, ladrilho_fundo, deslocamento_3d):
     relogio = pygame.time.Clock()
     progresso = [0.0 for _ in botoes]
 
@@ -559,13 +716,13 @@ def executar_menu(tela, rastreador, controle, botoes, textos):
             if evento.type == pygame.KEYDOWN and evento.key == pygame.K_r:
                 return True
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                for retangulo, _, acao in botoes:
+                for retangulo, _, acao, _ in botoes:
                     if retangulo.collidepoint(evento.pos):
                         return acao
 
         controle.atualizar(rastreador.pes_na_tela(), dt, [])
 
-        for indice, (retangulo, _, acao) in enumerate(botoes):
+        for indice, (retangulo, _, acao, _) in enumerate(botoes):
             pisado = any(
                 pe["ativo"] and retangulo.collidepoint(pe["x"], pe["y"])
                 for pe in controle.pes
@@ -574,13 +731,14 @@ def executar_menu(tela, rastreador, controle, botoes, textos):
             if progresso[indice] >= TEMPO_BOTAO_PE:
                 return acao
 
-        desenhar_menu(tela, botoes, progresso, controle, fonte, textos)
+        desenhar_menu(tela, botoes, progresso, controle, fonte, textos, ladrilho_fundo, deslocamento_3d)
         atualizar_janela_camera(rastreador)
 
 def executar_tela_inicial(tela, rastreador, controle):
     largura, altura = tela.get_size()
     botoes = criar_botoes(largura, altura, "Novo Jogo", altura // 2)
-    return executar_menu(tela, rastreador, controle, botoes, [])
+    fonte = pygame.font.Font(None, FONTE_PONTUACAO_TAMANHO)
+    return executar_menu(tela, rastreador, controle, botoes, [], fonte, None, 0)
 
 def carregar_mensagens():
     with open(CAMINHO_MENSAGENS, encoding="utf-8") as arquivo:
@@ -600,36 +758,77 @@ def quebrar_linhas(fonte, texto, largura_maxima):
         linhas.append(linha)
     return linhas
 
-def executar_menu_fim(tela, rastreador, controle, pontuacao, fonte_pontuacao, fonte_aviso):
+def executar_menu_fim(tela, rastreador, controle, pontuacao, fundo_jogo):
     largura, altura = tela.get_size()
-    botoes = criar_botoes(largura, altura, "Recomeçar", altura * 3 // 4)
-    texto_fim = fonte_aviso.render("Fim de jogo!", True, COR_BRANCA)
-    texto_pontuacao = fonte_pontuacao.render(
-        f"Pontuação final: {pontuacao}", True, COR_BRANCA
+    fonte_titulo = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_TITULO_TAMANHO)
+    fonte_fim = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_FIM_TAMANHO)
+    fonte_mensagem = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_MENSAGEM_TAMANHO)
+    botoes = criar_botoes(
+        largura, altura, "Recomeçar", altura * 3 // 4, (COR_VERDE, COR_VERMELHA)
     )
-    topo_pontuacao = altura // 3
+    deslocamento_3d = FONTE_TITULO_TAMANHO // GRADE_FONTE_HUD
+    texto_fim, sombra_fim = renderizar_texto_3d_com_borda(
+        fonte_titulo, "Fim de jogo!", COR_AMARELA, deslocamento_3d
+    )
+    espessura_fim = FONTE_FIM_TAMANHO // GRADE_FONTE_HUD
+    espessura_mensagem = FONTE_MENSAGEM_TAMANHO // GRADE_FONTE_HUD
+    texto_pontuacao, sombra_pontuacao = renderizar_texto_3d_com_borda(
+        fonte_fim, f"Pontuação final: {pontuacao}", COR_AZUL, espessura_fim
+    )
+    topo_pontuacao = altura // 3 - espessura_fim
+    x_pontuacao = (largura - texto_pontuacao.get_width()) // 2
+    x_fim, y_fim = (largura - texto_fim.get_width()) // 2, altura // 5 - deslocamento_3d
     textos = [
-        (texto_fim, ((largura - texto_fim.get_width()) // 2, altura // 5)),
         (
-            texto_pontuacao,
-            ((largura - texto_pontuacao.get_width()) // 2, topo_pontuacao),
+            sombra_fim,
+            (x_fim + deslocamento_3d, y_fim + deslocamento_3d),
+            AMPLITUDE_PENDULO_TITULO,
         ),
+        (texto_fim, (x_fim, y_fim), AMPLITUDE_PENDULO_TITULO),
+        (
+            sombra_pontuacao,
+            (x_pontuacao + espessura_fim, topo_pontuacao + espessura_fim),
+            0,
+        ),
+        (texto_pontuacao, (x_pontuacao, topo_pontuacao), 0),
     ]
 
     largura_mensagem = botoes[1][0].right - botoes[0][0].left
     mensagem = random.choice(carregar_mensagens())
     linhas = [
-        fonte_aviso.render(linha, True, COR_TEXTO)
-        for linha in quebrar_linhas(fonte_aviso, mensagem, largura_mensagem)
+        renderizar_texto_3d_com_borda(fonte_mensagem, linha, COR_BRANCA, espessura_mensagem)
+        for linha in quebrar_linhas(
+            fonte_mensagem, mensagem, largura_mensagem - 2 * espessura_mensagem
+        )
     ]
+    espaco_linhas = FONTE_MENSAGEM_TAMANHO // 2
     fim_pontuacao = topo_pontuacao + texto_pontuacao.get_height()
-    altura_mensagem = sum(linha.get_height() for linha in linhas)
+    altura_mensagem = sum(linha.get_height() for linha, _ in linhas) + espaco_linhas * (len(linhas) - 1)
     y = (fim_pontuacao + botoes[0][0].top - altura_mensagem) // 2
-    for linha in linhas:
-        textos.append((linha, ((largura - linha.get_width()) // 2, y)))
-        y += linha.get_height()
+    for linha, sombra in linhas:
+        x = (largura - linha.get_width()) // 2
+        textos.append((sombra, (x + espessura_mensagem, y + espessura_mensagem), 0))
+        textos.append((linha, (x, y), 0))
+        y += linha.get_height() + espaco_linhas
 
-    return executar_menu(tela, rastreador, controle, botoes, textos)
+    textos.insert(0, (criar_fundo_texto((largura, altura)), (0, 0), 0))
+
+    ladrilho_fundo = None
+    if MOSTRAR_FUNDO_MENU:
+        imagem_fundo = pygame.image.load(str(CAMINHO_FUNDO_MENU)).convert()
+        ampliacao_fundo = int(ESCALA_TELA) + AMPLIACAO_EXTRA_FUNDO_MENU
+        ladrilho_fundo = pygame.transform.scale(
+            imagem_fundo,
+            (
+                imagem_fundo.get_width() * ampliacao_fundo,
+                imagem_fundo.get_height() * ampliacao_fundo,
+            ),
+        )
+    else:
+        textos.insert(0, (fundo_jogo, (0, 0), 0))
+    return executar_menu(
+        tela, rastreador, controle, botoes, textos, fonte_fim, ladrilho_fundo, deslocamento_3d
+    )
 
 def executar_jogo(tela, rastreador, controle):
     """Executa o loop principal do jogo."""
@@ -638,8 +837,6 @@ def executar_jogo(tela, rastreador, controle):
     colunas = [retangulo.centerx - TAMANHO_ITEM // 2 for retangulo, _ in alvos]
     relogio = pygame.time.Clock()
     horario_inicio = pygame.time.get_ticks() / 1000
-    fonte_pontuacao = pygame.font.Font(None, FONTE_PONTUACAO_TAMANHO)
-    fonte_aviso = pygame.font.Font(None, FONTE_AVISO_TAMANHO)
     fonte_hud = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_HUD_TAMANHO)
     rodando = True
 
@@ -676,7 +873,7 @@ def executar_jogo(tela, rastreador, controle):
         if esta_pausado:
             for quadrado in controle.carregados():
                 controle.soltar(quadrado)
-            if executar_menu_fim(tela, rastreador, controle, pontuacao, fonte_pontuacao, fonte_aviso):
+            if executar_menu_fim(tela, rastreador, controle, pontuacao, tela.copy()):
                 pontuacao, multiplicador, acertos, lixos, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
             else:
                 rodando = False
