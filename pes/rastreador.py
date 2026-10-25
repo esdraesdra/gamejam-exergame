@@ -82,9 +82,9 @@ class RastreadorPes:
             pes = []
             if resultado.pose_landmarks:
                 pontos = resultado.pose_landmarks[0]
-                for calcanhar, ponta in ((29, 31), (30, 32)):
-                    x = (pontos[calcanhar].x + pontos[ponta].x) / 2
-                    y = (pontos[calcanhar].y + pontos[ponta].y) / 2
+                for ponta in (31, 32):
+                    x = pontos[ponta].x
+                    y = pontos[ponta].y
                     pes.append(self.para_tela(x, y))
             with self.trava:
                 self.pes_detectados = pes
