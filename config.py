@@ -1,4 +1,5 @@
 import cv2
+import pygame
 from ttea.util import PathConfig
 from ttea.model import CalibrationPoint
 from ttea.service import CalibrationService
@@ -25,10 +26,17 @@ def carregar_config():
     calibracao = CalibrationService()
         
     tela = calibracao.get_screen_info()
-    config["screen_position"] = tela["screen_position"]
-    config["screen_width"] = tela["screen_width"]
-    config["screen_height"] = tela["screen_height"]
-    config["camera_position"] = calibracao.get_camera_info()["camera_position"]
+    if tela:
+        config["screen_position"] = tela["screen_position"]
+        config["screen_width"] = tela["screen_width"]
+        config["screen_height"] = tela["screen_height"]
+    else:
+        pygame.display.init()
+        config["screen_position"] = 0
+        config["screen_width"], config["screen_height"] = pygame.display.get_desktop_sizes()[0]
+    camera = calibracao.get_camera_info()
+    if camera:
+        config["camera_position"] = camera["camera_position"]
     config["backend_camera"] = calibracao.get_opencv_capture_backend()
     ponto = calibracao.find_by_id_calibration_point(CalibrationPoint.ID_VALUE)
     if ponto:
