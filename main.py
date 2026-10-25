@@ -1,6 +1,7 @@
 import json
 import math
 import random
+import time
 from pathlib import Path
 
 import cv2
@@ -82,6 +83,7 @@ PENALIDADE_ERRO = 50
 TEMPO_JOGO = 90
 INTERVALO_DIFICULDADE = 30
 TEMPO_BOTAO_PE = 3
+TEMPO_TOLERANCIA_FORA_AREA = 0.6
 QUANTIDADE_LIXEIRAS = 4
 ESPACAMENTO_SPRITE = 32
 LARGURA_LIXEIRA_SPRITE = 192
@@ -727,7 +729,17 @@ def desenhar_menu(tela, botoes, progresso, controle, fonte, textos, ladrilho_fun
 
     pygame.display.flip()
 
-def executar_menu(tela, rastreador, controle, botoes, textos, fonte, ladrilho_fundo, deslocamento_3d):
+def executar_menu(
+    tela,
+    rastreador,
+    controle,
+    botoes,
+    textos,
+    fonte,
+    ladrilho_fundo,
+    deslocamento_3d,
+    permitir_reinicio=True,
+):
     relogio = pygame.time.Clock()
     progresso = [0.0 for _ in botoes]
 
@@ -742,7 +754,11 @@ def executar_menu(tela, rastreador, controle, botoes, textos, fonte, ladrilho_fu
                 pygame.K_q,
             ):
                 return False
-            if evento.type == pygame.KEYDOWN and evento.key == pygame.K_r:
+            if (
+                permitir_reinicio
+                and evento.type == pygame.KEYDOWN
+                and evento.key == pygame.K_r
+            ):
                 return True
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 for retangulo, _, acao, _ in botoes:
@@ -914,6 +930,53 @@ def executar_menu_fim(tela, rastreador, controle, pontuacao, fundo_jogo):
         tela, rastreador, controle, botoes, textos, fonte_fim, ladrilho_fundo, deslocamento_3d
     )
 
+
+def executar_menu_pausa(tela, rastreador, controle, fundo_jogo):
+    largura, altura = tela.get_size()
+    fonte_titulo = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_TITULO_TAMANHO)
+    fonte_mensagem = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_MENSAGEM_TAMANHO)
+    botoes = criar_botoes(
+        largura, altura, "Continuar", altura * 3 // 4, (COR_VERDE, COR_VERMELHA)
+    )
+    deslocamento_3d = FONTE_TITULO_TAMANHO // GRADE_FONTE_HUD
+    titulo, sombra_titulo = renderizar_texto_3d_com_borda(
+        fonte_titulo, "Jogo pausado", COR_AMARELA, deslocamento_3d
+    )
+    caixa_titulo = titulo.get_rect(center=(largura // 2, altura // 4))
+    textos = [
+        (fundo_jogo, (0, 0), 0, None),
+        (criar_fundo_texto((largura, altura)), (0, 0), 0, None),
+        (
+            sombra_titulo,
+            caixa_titulo.move(deslocamento_3d, deslocamento_3d),
+            0,
+            None,
+        ),
+        (titulo, caixa_titulo, 0, None),
+    ]
+    textos += montar_linhas_texto(
+        fonte_mensagem,
+        "Volte para a área reconhecida e selecione Continuar.",
+        COR_BRANCA,
+        largura - 2 * MARGEM_UI,
+        largura,
+        altura // 3,
+        botoes[0][0].top,
+    )
+    fonte_botao = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_FIM_TAMANHO)
+    return executar_menu(
+        tela,
+        rastreador,
+        controle,
+        botoes,
+        textos,
+        fonte_botao,
+        None,
+        deslocamento_3d,
+        permitir_reinicio=False,
+    )
+
+
 def executar_jogo(tela, rastreador, controle):
     """Executa o loop principal do jogo."""
     largura, altura = tela.get_size()
@@ -923,6 +986,7 @@ def executar_jogo(tela, rastreador, controle):
     horario_inicio = pygame.time.get_ticks() / 1000
     fonte_hud = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_HUD_TAMANHO)
     rodando = True
+    inicio_fora_area = None
 
     pontuacao, multiplicador, acertos, lixos, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
 
@@ -939,6 +1003,32 @@ def executar_jogo(tela, rastreador, controle):
         if segundo_passados >= TEMPO_JOGO:
             esta_pausado = True
 
+        if rastreador.ativo and not esta_pausado:
+            vistos = rastreador.pes_na_tela()
+            dentro_area = any(
+                0 <= x < largura and 0 <= y < altura for x, y in vistos
+            )
+            if dentro_area:
+                inicio_fora_area = None
+            elif inicio_fora_area is None:
+                inicio_fora_area = time.monotonic()
+            elif time.monotonic() - inicio_fora_area >= TEMPO_TOLERANCIA_FORA_AREA:
+                for quadrado in controle.carregados():
+                    controle.soltar(quadrado)
+                inicio_pausa = pygame.time.get_ticks()
+                resultado_pausa = executar_menu_pausa(
+                    tela, rastreador, controle, tela.copy()
+                )
+                if resultado_pausa is True:
+                    horario_inicio += (
+                        pygame.time.get_ticks() - inicio_pausa
+                    ) / 1000
+                    inicio_fora_area = None
+                else:
+                    rodando = False
+                atualizar_janela_camera(rastreador)
+                continue
+
         minutos, segundos = divmod(segundo_passados, 60)
         tempo = f"{int(minutos):02d}:{int(segundos):02d}"
 
@@ -953,6 +1043,7 @@ def executar_jogo(tela, rastreador, controle):
 
         if reiniciar:
             pontuacao, multiplicador, acertos, lixos, ultimo_spawn, horario_inicio, arrastando_mouse, esta_pausado = reiniciar_jogo()
+            inicio_fora_area = None
 
         if esta_pausado:
             for quadrado in controle.carregados():
