@@ -15,6 +15,9 @@ from pes.rastreador import RastreadorPes
 TAXA_QUADROS = 60
 FPS_ANIMACAO_INICIO = 4
 DURACAO_FADE_ANIMACAO_MS = 1000
+DURACAO_APRESENTACAO_GARI = 5
+ALTURA_GARI_PROPORCAO = 0.9
+FALA_GARI = "A rua está cheia de lixo! Use os pés para levar cada um até a lixeira certa."
 TITULO_JANELA = "Catalixo"
 MARGEM_UI_BASE = 13
 RAIO_PE_BASE = 10
@@ -37,6 +40,7 @@ CAMINHO_FUNDO_MENU = Path(__file__).resolve().parent / "assets" / "background-me
 CAMINHO_ANIMACAO_INICIO = (
     Path(__file__).resolve().parent / "assets" / "animacao"
 )
+CAMINHO_GARI = Path(__file__).resolve().parent / "assets" / "gari.png"
 CAMINHO_ICONE_TEMPO = Path(__file__).resolve().parent / "assets" / "timer.png"
 CAMINHO_SPRITE_BOTAO_VERDE = Path(__file__).resolve().parent / "assets" / "box-button-green.png"
 CAMINHO_SPRITE_BOTAO_VERMELHO = Path(__file__).resolve().parent / "assets" / "box-button-red.png"
@@ -890,6 +894,60 @@ def executar_animacao_inicio(tela, rastreador):
             return True
 
 
+def executar_apresentacao_gari(tela, rastreador):
+    largura, altura = tela.get_size()
+    caixa_fala = pygame.Rect(
+        MARGEM_UI,
+        altura - MARGEM_UI - altura // 4,
+        largura - 2 * MARGEM_UI,
+        altura // 4,
+    )
+    imagem_gari = pygame.image.load(str(CAMINHO_GARI)).convert_alpha()
+    ampliacao_gari = max(1, round(altura * ALTURA_GARI_PROPORCAO / imagem_gari.get_height()))
+    gari = pygame.transform.scale(
+        imagem_gari,
+        (imagem_gari.get_width() * ampliacao_gari, imagem_gari.get_height() * ampliacao_gari),
+    )
+    posicao_gari = gari.get_rect(midbottom=(largura // 2, caixa_fala.bottom))
+    fonte_fala = pygame.font.Font(str(CAMINHO_FONTE_HUD), FONTE_MENSAGEM_TAMANHO)
+    espessura_borda = FONTE_MENSAGEM_TAMANHO // GRADE_FONTE_HUD
+    linhas_fala = montar_linhas_texto(
+        fonte_fala,
+        FALA_GARI,
+        COR_BRANCA,
+        caixa_fala.width - 2 * MARGEM_UI,
+        largura,
+        caixa_fala.top,
+        caixa_fala.bottom,
+    )
+    relogio = pygame.time.Clock()
+    inicio = pygame.time.get_ticks()
+
+    while pygame.time.get_ticks() - inicio < DURACAO_APRESENTACAO_GARI * 1000:
+        relogio.tick(TAXA_QUADROS)
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT or (
+                evento.type == pygame.KEYDOWN
+                and evento.key in (pygame.K_ESCAPE, pygame.K_q)
+            ):
+                return False
+
+        desenhar_fundo(tela)
+        desenhar_caminhao(tela, 1)
+        desenhar_lixeiras(tela)
+        desenhar_caminhao(tela, 2)
+        tela.blit(gari, posicao_gari)
+        pygame.draw.rect(tela, COR_PRETA, caixa_fala)
+        pygame.draw.rect(tela, COR_BRANCA, caixa_fala, espessura_borda)
+        for imagem, posicao, _, _ in linhas_fala:
+            tela.blit(imagem, posicao)
+
+        pygame.display.flip()
+        atualizar_janela_camera(rastreador)
+
+    return True
+
+
 def carregar_mensagens():
     with open(CAMINHO_MENSAGENS, encoding="utf-8") as arquivo:
         return json.load(arquivo)["mensagens"]
@@ -1186,7 +1244,8 @@ def main():
 
         if executar_tela_inicial(tela, rastreador, controle):
             if executar_animacao_inicio(tela, rastreador):
-                executar_jogo(tela, rastreador, controle)
+                if executar_apresentacao_gari(tela, rastreador):
+                    executar_jogo(tela, rastreador, controle)
     finally:
         if rastreador is not None:
             rastreador.parar()
