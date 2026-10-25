@@ -36,6 +36,8 @@ CAMINHO_SPRITE_BOTAO_VERDE = Path(__file__).resolve().parent / "assets" / "box-b
 CAMINHO_SPRITE_BOTAO_VERMELHO = Path(__file__).resolve().parent / "assets" / "box-button-red.png"
 CAMINHO_LOGO_MUNDO = Path(__file__).resolve().parent / "assets" / "logo-world.png"
 CAMINHO_LOGO_TEXTO = Path(__file__).resolve().parent / "assets" / "logo-text.png"
+CAMINHO_SOM_ACERTO = Path(__file__).resolve().parent / "assets" / "pontos.wav"
+CAMINHO_SOM_ERRO = Path(__file__).resolve().parent / "assets" / "perde-pontos.wav"
 
 # Cores da interface e dos alvos
 COR_VERDE = (0, 200, 0)
@@ -108,6 +110,7 @@ IMAGEM_FUNDO = None
 SPRITES_CAMINHOES = {}
 SPRITES_ICONES = {}
 SPRITES_BOTOES = {}
+SONS = {}
 
 # multiplicador de pontos
 
@@ -318,6 +321,7 @@ def atualizar_lixos(
 
         if quadrado[2] == cor_alvo:
             pontuacao += PONTOS_ACERTO * multiplicador
+            tocar_som(CAMINHO_SOM_ACERTO)
             acertos+=1
             if acertos == multiplicadorAcertos:
                 multiplicador = min(multiplicador + 1, multiplicadorMax)
@@ -325,6 +329,7 @@ def atualizar_lixos(
 
         else:
             pontuacao = max(0, pontuacao - PENALIDADE_ERRO)
+            tocar_som(CAMINHO_SOM_ERRO)
             multiplicador = 1
             acertos = 0
 
@@ -510,6 +515,14 @@ def imagem_botao(cor, tamanho):
         sombra.fill((*COR_PRETA, 255), special_flags=pygame.BLEND_RGBA_MULT)
         SPRITES_BOTOES[chave] = (botao, sombra)
     return SPRITES_BOTOES[chave]
+
+
+def tocar_som(caminho):
+    if not pygame.mixer.get_init():
+        return
+    if caminho not in SONS:
+        SONS[caminho] = pygame.mixer.Sound(str(caminho))
+    SONS[caminho].play()
 
 
 def carregar_icone_tempo(altura_texto):
