@@ -766,7 +766,12 @@ def executar_tela_inicial(tela, rastreador, controle):
             )
         )
     posicao_logo = camadas_logo[0].get_rect(center=(largura // 2, botoes[0][0].top // 2)).topleft
+    fundo = pygame.transform.scale(
+        pygame.image.load(str(CAMINHO_FUNDO_MENU)).convert(), (largura, altura)
+    )
     textos = [
+        (fundo, (0, 0), 0, None),
+        (criar_fundo_texto((largura, altura)), (0, 0), 0, None),
         (camadas_logo[0], posicao_logo, 0, None),
         (camadas_logo[1], posicao_logo, AMPLITUDE_PENDULO_LOGO, "center"),
     ]
